@@ -1,15 +1,26 @@
-import React, { useState, useRef } from 'react';
-import { Plus, X, Edit3, Trash2, Calendar, User } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Plus, X, Edit3, Trash2, Calendar, User, Settings, Mail, Clock, Activity } from 'lucide-react';
 
 const TrelloClone = () => {
+  // Estados principales
+  const [currentUser, setCurrentUser] = useState('');
+  const [users, setUsers] = useState(['Ana', 'Carlos', 'María', 'Pedro']);
+  const [activityLog, setActivityLog] = useState([]);
+  const [emailConfig, setEmailConfig] = useState({
+    email: 'corporativolinkarchivos@gmail.com',
+    password: 'M1q2w3e4r5t6y7u8i($'
+  });
+  const [showSettings, setShowSettings] = useState(false);
+  const [showActivityLog, setShowActivityLog] = useState(false);
+  
   const [boards, setBoards] = useState([
     {
       id: 1,
       title: "Por Hacer",
       color: "bg-blue-500",
       cards: [
-        { id: 1, title: "Diseñar interfaz", description: "Crear mockups de la aplicación", dueDate: "2025-08-20", assignee: "Ana" },
-        { id: 2, title: "Configurar base de datos", description: "Configurar MongoDB", dueDate: "2025-08-22", assignee: "Carlos" }
+        { id: 1, title: "Diseñar interfaz", description: "Crear mockups de la aplicación", dueDate: "2025-08-20", assignee: "Ana", backgroundColor: "#fef3c7", reminderEmail: "", reminderDateTime: "" },
+        { id: 2, title: "Configurar base de datos", description: "Configurar MongoDB", dueDate: "2025-08-22", assignee: "Carlos", backgroundColor: "#dbeafe", reminderEmail: "", reminderDateTime: "" }
       ]
     },
     {
@@ -17,7 +28,7 @@ const TrelloClone = () => {
       title: "En Progreso",
       color: "bg-yellow-500",
       cards: [
-        { id: 3, title: "Desarrollar API", description: "Crear endpoints REST", dueDate: "2025-08-25", assignee: "María" }
+        { id: 3, title: "Desarrollar API", description: "Crear endpoints REST", dueDate: "2025-08-25", assignee: "María", backgroundColor: "#fed7d7", reminderEmail: "", reminderDateTime: "" }
       ]
     },
     {
@@ -25,7 +36,7 @@ const TrelloClone = () => {
       title: "Completado",
       color: "bg-green-500",
       cards: [
-        { id: 4, title: "Investigación inicial", description: "Análisis de requisitos", dueDate: "2025-08-15", assignee: "Pedro" }
+        { id: 4, title: "Investigación inicial", description: "Análisis de requisitos", dueDate: "2025-08-15", assignee: "Pedro", backgroundColor: "#d1fae5", reminderEmail: "", reminderDateTime: "" }
       ]
     }
   ]);
@@ -41,9 +52,37 @@ const TrelloClone = () => {
   const [newCardDescription, setNewCardDescription] = useState('');
   const [newCardDueDate, setNewCardDueDate] = useState('');
   const [newCardAssignee, setNewCardAssignee] = useState('');
+  const [newCardBackgroundColor, setNewCardBackgroundColor] = useState('#ffffff');
+  const [newCardReminderEmail, setNewCardReminderEmail] = useState('');
+  const [newCardReminderDateTime, setNewCardReminderDateTime] = useState('');
   const [newBoardTitle, setNewBoardTitle] = useState('');
+  const [newUserName, setNewUserName] = useState('');
 
   const dragRef = useRef(null);
+
+  // Colores predefinidos para las tareas
+  const cardColors = [
+    { name: 'Blanco', value: '#ffffff' },
+    { name: 'Amarillo', value: '#fef3c7' },
+    { name: 'Azul', value: '#dbeafe' },
+    { name: 'Verde', value: '#d1fae5' },
+    { name: 'Rojo', value: '#fed7d7' },
+    { name: 'Morado', value: '#e9d5ff' },
+    { name: 'Rosa', value: '#fce7f3' },
+    { name: 'Gris', value: '#f3f4f6' }
+  ];
+
+  // Función para registrar actividad
+  const logActivity = (action, details) => {
+    const newActivity = {
+      id: Date.now(),
+      user: currentUser || 'Usuario Anónimo',
+      action,
+      details,
+      timestamp: new Date().toISOString()
+    };
+    setActivityLog(prev => [newActivity, ...prev].slice(0, 100)); // Mantener solo las últimas 100 actividades
+  };
 
   // Drag and Drop handlers
   const handleDragStart = (e, card, boardId) => {
@@ -96,7 +135,10 @@ const TrelloClone = () => {
         title: newCardTitle,
         description: newCardDescription,
         dueDate: newCardDueDate,
-        assignee: newCardAssignee
+        assignee: newCardAssignee,
+        backgroundColor: newCardBackgroundColor,
+        reminderEmail: newCardReminderEmail,
+        reminderDateTime: newCardReminderDateTime
       };
 
       setBoards(prevBoards =>
@@ -107,11 +149,23 @@ const TrelloClone = () => {
         )
       );
 
+      // Registrar actividad y programar recordatorio
+      const boardName = boards.find(b => b.id === boardId)?.title || 'Tablero';
+      logActivity('Tarjeta creada', `"${newCardTitle}" en ${boardName}`);
+      
+      // Programar recordatorio si se configuró
+      if (newCardReminderEmail && newCardReminderDateTime) {
+        await scheduleReminder(newCardTitle, newCardReminderEmail, newCardReminderDateTime, boardName);
+      }
+
       // Limpiar formulario
       setNewCardTitle('');
       setNewCardDescription('');
       setNewCardDueDate('');
       setNewCardAssignee('');
+      setNewCardBackgroundColor('#ffffff');
+      setNewCardReminderEmail('');
+      setNewCardReminderDateTime('');
       setShowCardForm(null);
     }
   };
@@ -135,6 +189,9 @@ const TrelloClone = () => {
 
   // Eliminar tarjeta
   const deleteCard = (boardId, cardId) => {
+    const board = boards.find(b => b.id === boardId);
+    const card = board?.cards.find(c => c.id === cardId);
+    
     setBoards(prevBoards =>
       prevBoards.map(board =>
         board.id === boardId
@@ -142,11 +199,22 @@ const TrelloClone = () => {
           : board
       )
     );
+    
+    // Registrar actividad
+    if (card) {
+      logActivity('Tarjeta eliminada', `"${card.title}" de ${board?.title}`);
+    }
   };
 
   // Eliminar tablero
   const deleteBoard = (boardId) => {
+    const board = boards.find(b => b.id === boardId);
     setBoards(prev => prev.filter(board => board.id !== boardId));
+    
+    // Registrar actividad
+    if (board) {
+      logActivity('Tablero eliminado', `"${board.title}" con ${board.cards.length} tarjetas`);
+    }
   };
 
   // Editar tarjeta
@@ -163,7 +231,76 @@ const TrelloClone = () => {
           : board
       )
     );
+    
+    // Registrar actividad y programar recordatorio
+    const boardName = boards.find(b => b.id === boardId)?.title || 'Tablero';
+    logActivity('Tarjeta editada', `"${updatedCard.title}" en ${boardName}`);
+    
+    // Programar recordatorio si se configuró
+    if (updatedCard.reminderEmail && updatedCard.reminderDateTime) {
+      await scheduleReminder(updatedCard.title, updatedCard.reminderEmail, updatedCard.reminderDateTime, boardName);
+    }
+    
     setEditingCard(null);
+  };
+
+  // Agregar nuevo usuario
+  const addUser = () => {
+    if (newUserName.trim() && !users.includes(newUserName.trim())) {
+      setUsers(prev => [...prev, newUserName.trim()]);
+      logActivity('Usuario agregado', newUserName.trim());
+      setNewUserName('');
+    }
+  };
+
+  // Actualizar configuración de email
+  const updateEmailConfig = async (newConfig) => {
+    try {
+      const response = await fetch('http://localhost:3001/api/email-config', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newConfig)
+      });
+      
+      if (response.ok) {
+        setEmailConfig(newConfig);
+        logActivity('Configuración actualizada', 'Email de recordatorios configurado');
+        alert('Configuración de email guardada correctamente');
+      } else {
+        alert('Error al guardar la configuración');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Error de conexión con el servidor');
+    }
+  };
+
+  // Programar recordatorio
+  const scheduleReminder = async (cardTitle, reminderEmail, reminderDateTime, boardTitle) => {
+    if (!reminderEmail || !reminderDateTime) return;
+    
+    try {
+      const response = await fetch('http://localhost:3001/api/reminders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          cardTitle,
+          reminderEmail,
+          reminderDateTime,
+          boardTitle
+        })
+      });
+      
+      if (response.ok) {
+        logActivity('Recordatorio programado', `Para "${cardTitle}" en ${reminderEmail}`);
+      }
+    } catch (error) {
+      console.error('Error programando recordatorio:', error);
+    }
   };
 
   return (
@@ -171,8 +308,46 @@ const TrelloClone = () => {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">Mi Tablero de Tareas</h1>
-          <p className="text-gray-600">Organiza tus proyectos de manera eficiente</p>
+          <div className="flex justify-between items-start">
+            <div>
+              <h1 className="text-4xl font-bold text-gray-800 mb-2">Mi Tablero de Tareas</h1>
+              <p className="text-gray-600">Organiza tus proyectos de manera eficiente</p>
+            </div>
+            <div className="flex items-center space-x-4">
+              {/* Selector de usuario */}
+              <div className="flex items-center space-x-2">
+                <User className="text-gray-600" size={20} />
+                <select
+                  value={currentUser}
+                  onChange={(e) => setCurrentUser(e.target.value)}
+                  className="p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Seleccionar usuario</option>
+                  {users.map(user => (
+                    <option key={user} value={user}>{user}</option>
+                  ))}
+                </select>
+              </div>
+              
+              {/* Botón de configuración */}
+              <button
+                onClick={() => setShowSettings(true)}
+                className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded"
+                title="Configuración"
+              >
+                <Settings size={20} />
+              </button>
+              
+              {/* Botón de bitácora */}
+              <button
+                onClick={() => setShowActivityLog(true)}
+                className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded"
+                title="Bitácora de actividades"
+              >
+                <Activity size={20} />
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Boards Container */}
@@ -211,7 +386,8 @@ const TrelloClone = () => {
                       key={card.id}
                       draggable
                       onDragStart={(e) => handleDragStart(e, card, board.id)}
-                      className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow cursor-move group"
+                      className="rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow cursor-move group"
+                      style={{ backgroundColor: card.backgroundColor || '#f9fafb' }}
                     >
                       <div className="flex justify-between items-start mb-2">
                         <h3 className="font-medium text-gray-800 flex-1">{card.title}</h3>
@@ -236,16 +412,24 @@ const TrelloClone = () => {
                       )}
                       
                       <div className="flex justify-between items-center text-xs text-gray-500">
-                        {card.dueDate && (
-                          <div className="flex items-center space-x-1">
-                            <Calendar size={12} />
-                            <span>{new Date(card.dueDate).toLocaleDateString()}</span>
-                          </div>
-                        )}
-                        {card.assignee && (
-                          <div className="flex items-center space-x-1">
-                            <User size={12} />
-                            <span>{card.assignee}</span>
+                        <div className="flex space-x-3">
+                          {card.dueDate && (
+                            <div className="flex items-center space-x-1">
+                              <Calendar size={12} />
+                              <span>{new Date(card.dueDate).toLocaleDateString()}</span>
+                            </div>
+                          )}
+                          {card.assignee && (
+                            <div className="flex items-center space-x-1">
+                              <User size={12} />
+                              <span>{card.assignee}</span>
+                            </div>
+                          )}
+                        </div>
+                        {card.reminderEmail && (
+                          <div className="flex items-center space-x-1 text-blue-600">
+                            <Mail size={12} />
+                            <Clock size={12} />
                           </div>
                         )}
                       </div>
@@ -276,11 +460,51 @@ const TrelloClone = () => {
                         onChange={(e) => setNewCardDueDate(e.target.value)}
                         className="w-full mb-2 p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
-                      <input
-                        type="text"
-                        placeholder="Asignado a"
+                      <select
                         value={newCardAssignee}
                         onChange={(e) => setNewCardAssignee(e.target.value)}
+                        className="w-full mb-2 p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">Asignar a...</option>
+                        {users.map(user => (
+                          <option key={user} value={user}>{user}</option>
+                        ))}
+                      </select>
+                      
+                      {/* Selector de color */}
+                      <div className="mb-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Color de fondo:</label>
+                        <div className="flex flex-wrap gap-2">
+                          {cardColors.map(color => (
+                            <button
+                              key={color.value}
+                              type="button"
+                              onClick={() => setNewCardBackgroundColor(color.value)}
+                              className={`w-6 h-6 rounded border-2 ${
+                                newCardBackgroundColor === color.value 
+                                  ? 'border-gray-800' 
+                                  : 'border-gray-300'
+                              }`}
+                              style={{ backgroundColor: color.value }}
+                              title={color.name}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                      
+                      {/* Recordatorio por email */}
+                      <input
+                        type="email"
+                        placeholder="Email para recordatorio (opcional)"
+                        value={newCardReminderEmail}
+                        onChange={(e) => setNewCardReminderEmail(e.target.value)}
+                        className="w-full mb-2 p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <input
+                        type="datetime-local"
+                        placeholder="Fecha y hora del recordatorio"
+                        value={newCardReminderDateTime}
+                        onChange={(e) => setNewCardReminderDateTime(e.target.value)}
                         className="w-full mb-3 p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                       <div className="flex space-x-2">
@@ -377,12 +601,51 @@ const TrelloClone = () => {
               onChange={(e) => setEditingCard({ ...editingCard, dueDate: e.target.value })}
               className="w-full mb-3 p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-            <input
-              type="text"
-              value={editingCard.assignee}
+            <select
+              value={editingCard.assignee || ''}
               onChange={(e) => setEditingCard({ ...editingCard, assignee: e.target.value })}
+              className="w-full mb-3 p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Asignar a...</option>
+              {users.map(user => (
+                <option key={user} value={user}>{user}</option>
+              ))}
+            </select>
+            
+            {/* Selector de color */}
+            <div className="mb-3">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Color de fondo:</label>
+              <div className="flex flex-wrap gap-2">
+                {cardColors.map(color => (
+                  <button
+                    key={color.value}
+                    type="button"
+                    onClick={() => setEditingCard({ ...editingCard, backgroundColor: color.value })}
+                    className={`w-6 h-6 rounded border-2 ${
+                      (editingCard.backgroundColor || '#ffffff') === color.value 
+                        ? 'border-gray-800' 
+                        : 'border-gray-300'
+                    }`}
+                    style={{ backgroundColor: color.value }}
+                    title={color.name}
+                  />
+                ))}
+              </div>
+            </div>
+            
+            {/* Recordatorio por email */}
+            <input
+              type="email"
+              value={editingCard.reminderEmail || ''}
+              onChange={(e) => setEditingCard({ ...editingCard, reminderEmail: e.target.value })}
+              className="w-full mb-3 p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Email para recordatorio"
+            />
+            <input
+              type="datetime-local"
+              value={editingCard.reminderDateTime || ''}
+              onChange={(e) => setEditingCard({ ...editingCard, reminderDateTime: e.target.value })}
               className="w-full mb-4 p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Asignado a"
             />
             <div className="flex space-x-3">
               <button
@@ -398,6 +661,118 @@ const TrelloClone = () => {
                 Cancelar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Configuración */}
+      {showSettings && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-96 overflow-y-auto">
+            <h3 className="text-lg font-semibold mb-4">Configuración</h3>
+            
+            {/* Configuración de Email */}
+            <div className="mb-6">
+              <h4 className="font-medium mb-2">Email para Recordatorios</h4>
+              <input
+                type="email"
+                value={emailConfig.email}
+                onChange={(e) => setEmailConfig({...emailConfig, email: e.target.value})}
+                className="w-full mb-2 p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Email"
+              />
+              <input
+                type="password"
+                value={emailConfig.password}
+                onChange={(e) => setEmailConfig({...emailConfig, password: e.target.value})}
+                className="w-full mb-2 p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Contraseña"
+              />
+              <button
+                onClick={() => updateEmailConfig(emailConfig)}
+                className="w-full bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 transition-colors"
+              >
+                Guardar Configuración
+              </button>
+            </div>
+            
+            {/* Gestión de Usuarios */}
+            <div className="mb-4">
+              <h4 className="font-medium mb-2">Usuarios</h4>
+              <div className="flex mb-2">
+                <input
+                  type="text"
+                  value={newUserName}
+                  onChange={(e) => setNewUserName(e.target.value)}
+                  className="flex-1 p-2 border border-gray-300 rounded-l focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Nuevo usuario"
+                  onKeyPress={(e) => e.key === 'Enter' && addUser()}
+                />
+                <button
+                  onClick={addUser}
+                  className="bg-green-500 text-white px-4 rounded-r hover:bg-green-600 transition-colors"
+                >
+                  <Plus size={16} />
+                </button>
+              </div>
+              <div className="space-y-1 max-h-32 overflow-y-auto">
+                {users.map(user => (
+                  <div key={user} className="flex justify-between items-center bg-gray-50 p-2 rounded">
+                    <span>{user}</span>
+                    <button
+                      onClick={() => setUsers(prev => prev.filter(u => u !== user))}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            <button
+              onClick={() => setShowSettings(false)}
+              className="w-full bg-gray-300 text-gray-700 py-2 px-4 rounded hover:bg-gray-400 transition-colors"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Bitácora */}
+      {showActivityLog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-96 overflow-y-auto">
+            <h3 className="text-lg font-semibold mb-4">Bitácora de Actividades</h3>
+            
+            {activityLog.length === 0 ? (
+              <p className="text-gray-500 text-center py-8">No hay actividades registradas</p>
+            ) : (
+              <div className="space-y-3">
+                {activityLog.map(activity => (
+                  <div key={activity.id} className="border-b border-gray-200 pb-3">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="font-medium text-gray-800">{activity.action}</p>
+                        <p className="text-gray-600 text-sm">{activity.details}</p>
+                        <p className="text-xs text-gray-500">Por: {activity.user}</p>
+                      </div>
+                      <span className="text-xs text-gray-500">
+                        {new Date(activity.timestamp).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            <button
+              onClick={() => setShowActivityLog(false)}
+              className="w-full mt-4 bg-gray-300 text-gray-700 py-2 px-4 rounded hover:bg-gray-400 transition-colors"
+            >
+              Cerrar
+            </button>
           </div>
         </div>
       )}

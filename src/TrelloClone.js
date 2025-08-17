@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Plus, X, Edit3, Trash2, Calendar, User, Settings, Mail, Clock, Activity } from 'lucide-react';
+import config from './config';
 
 const TrelloClone = () => {
   // Estados principales
@@ -256,7 +257,7 @@ const TrelloClone = () => {
   // Actualizar configuración de email
   const updateEmailConfig = async (newConfig) => {
     try {
-      const response = await fetch('http://localhost:3001/api/email-config', {
+      const response = await fetch(`${config.API_URL}/api/email-config`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -282,7 +283,7 @@ const TrelloClone = () => {
     if (!reminderEmail || !reminderDateTime) return;
     
     try {
-      const response = await fetch('http://localhost:3001/api/reminders', {
+      const response = await fetch(`${config.API_URL}/api/reminders`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

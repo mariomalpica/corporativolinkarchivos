@@ -5,17 +5,20 @@ const cron = require('node-cron');
 const bodyParser = require('body-parser');
 
 const app = express();
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: ['http://localhost:3000', 'https://corporativolinkarchivos.vercel.app'],
+  credentials: true
+}));
 app.use(bodyParser.json());
 
 // Almacenamiento en memoria para recordatorios (en producción usar base de datos)
 let reminders = [];
 let emailConfig = {
-  email: 'corporativolinkarchivos@gmail.com',
-  password: 'M1q2w3e4r5t6y7u8i($'
+  email: process.env.EMAIL_USER || 'corporativolinkarchivos@gmail.com',
+  password: process.env.EMAIL_PASS || 'M1q2w3e4r5t6y7u8i($'
 };
 
 // Configurar transportador de email
@@ -120,7 +123,24 @@ cron.schedule('0 * * * *', () => {
   console.log(`Limpieza: ${initialCount - reminders.length} recordatorios eliminados`);
 });
 
+// Ruta de salud para verificar que el servidor está funcionando
+app.get('/health', (req, res) => {
+  res.json({ status: 'OK', message: 'Servidor funcionando correctamente' });
+});
+
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'API del Trello Clone funcionando', 
+    endpoints: [
+      'POST /api/email-config',
+      'POST /api/reminders',
+      'GET /api/reminders',
+      'DELETE /api/reminders/:id'
+    ]
+  });
+});
+
 app.listen(PORT, () => {
-  console.log(`Servidor corriendo en http://localhost:${PORT}`);
+  console.log(`Servidor corriendo en puerto ${PORT}`);
   console.log('Verificación de recordatorios activa cada minuto');
 });

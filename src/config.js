@@ -1,10 +1,10 @@
 // Configuración para desarrollo y producción
 const config = {
   development: {
-    API_URL: 'http://localhost:3001'
+    API_URL: 'http://localhost:3001/api'
   },
   production: {
-    API_URL: 'https://corporativolinkarchivos-backend.up.railway.app'
+    API_URL: 'https://corporativolinkarchivos.vercel.app/api'
   }
 };
 

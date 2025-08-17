@@ -257,7 +257,7 @@ const TrelloClone = () => {
   // Actualizar configuración de email
   const updateEmailConfig = async (newConfig) => {
     try {
-      const response = await fetch(`${config.API_URL}/api/email-config`, {
+      const response = await fetch(`${config.API_URL}/email-config`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -283,7 +283,7 @@ const TrelloClone = () => {
     if (!reminderEmail || !reminderDateTime) return;
     
     try {
-      const response = await fetch(`${config.API_URL}/api/reminders`, {
+      const response = await fetch(`${config.API_URL}/reminders`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

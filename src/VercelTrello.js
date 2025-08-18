@@ -298,14 +298,41 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
     e.preventDefault();
     setDraggedOverBoard(null);
 
-    if (draggedCard && draggedCard.fromBoardId !== targetBoardId) {
-      setIsPerformingAction(true);
-      
-      try {
-        const fromBoard = boards.find(b => b.id === draggedCard.fromBoardId);
-        const toBoard = boards.find(b => b.id === targetBoardId);
+    if (!draggedCard) {
+      return;
+    }
 
-        const newBoards = boards.map(board => {
+    console.log('🚨 EMERGENCIA - handleDrop ejecutado:', { 
+      fromBoard: draggedCard.fromBoardId, 
+      toBoard: targetBoardId,
+      sameBoardReorder: draggedCard.fromBoardId === targetBoardId
+    });
+
+    setIsPerformingAction(true);
+    
+    try {
+      const fromBoard = boards.find(b => b.id === draggedCard.fromBoardId);
+      const toBoard = boards.find(b => b.id === targetBoardId);
+
+      let newBoards;
+
+      // Si es el mismo tablero (reordenamiento), simplemente remover y agregar al final
+      if (draggedCard.fromBoardId === targetBoardId) {
+        console.log('🔄 EMERGENCIA - Reordenando en mismo tablero');
+        newBoards = boards.map(board => {
+          if (board.id === targetBoardId) {
+            const filteredCards = board.cards.filter(c => c.id !== draggedCard.card.id);
+            return {
+              ...board,
+              cards: [...filteredCards, draggedCard.card] // Agregar al final
+            };
+          }
+          return board;
+        });
+      } else {
+        // Movimiento entre tableros diferentes
+        console.log('🔄 EMERGENCIA - Moviendo entre tableros');
+        newBoards = boards.map(board => {
           if (board.id === draggedCard.fromBoardId) {
             return {
               ...board,
@@ -320,37 +347,42 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
           }
           return board;
         });
-
-        // Actualizar estado local
-        setBoards(newBoards);
-        
-        // Guardar en servidor
-        const success = await saveData(newBoards);
-        if (!success) {
-          // Revertir si falla
-          setBoards(boards);
-          setDraggedCard(null);
-          return;
-        }
-
-        // Registrar en auditoría
-        logCardAction(
-          currentUser,
-          AUDIT_ACTIONS.MOVE_CARD,
-          draggedCard.card.title,
-          toBoard?.title || 'Tablero',
-          draggedCard.card.id,
-          targetBoardId,
-          {
-            fromBoard: fromBoard?.title,
-            fromBoardId: draggedCard.fromBoardId
-          }
-        );
-      } finally {
-        // Reactivar auto-refresh después de 2 segundos
-        setTimeout(() => setIsPerformingAction(false), 2000);
       }
+
+      // Actualizar estado local
+      setBoards(newBoards);
+      
+      // Guardar en servidor
+      const success = await saveData(newBoards);
+      if (!success) {
+        // Revertir si falla
+        setBoards(boards);
+        setDraggedCard(null);
+        return;
+      }
+
+      // Registrar en auditoría
+      logCardAction(
+        currentUser,
+        AUDIT_ACTIONS.MOVE_CARD,
+        draggedCard.card.title,
+        toBoard?.title || 'Tablero',
+        draggedCard.card.id,
+        targetBoardId,
+        {
+          fromBoard: fromBoard?.title,
+          fromBoardId: draggedCard.fromBoardId,
+          action: draggedCard.fromBoardId === targetBoardId ? 'reorder' : 'move'
+        }
+      );
+    } catch (error) {
+      console.error('❌ EMERGENCIA - Error en handleDrop:', error);
+      setBoards(boards);
+    } finally {
+      // Reactivar auto-refresh después de 2 segundos
+      setTimeout(() => setIsPerformingAction(false), 2000);
     }
+    
     setDraggedCard(null);
   };
 
@@ -606,7 +638,12 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
                       />
                       <div className="flex space-x-2">
                         <button
-                          onClick={() => addCard(board.id)}
+                          onClick={(e) => {
+                            console.log('🚨 EMERGENCIA - Click en botón Agregar detectado', { boardId: board.id, title: newCardTitle });
+                            e.preventDefault();
+                            e.stopPropagation();
+                            addCard(board.id);
+                          }}
                           className="flex-1 bg-blue-500 text-white py-2 px-3 rounded hover:bg-blue-600"
                           disabled={!newCardTitle.trim()}
                         >

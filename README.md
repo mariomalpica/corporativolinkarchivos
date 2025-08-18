@@ -29,6 +29,11 @@ Una aplicación completa de gestión de tareas inspirada en Trello, con sistema 
   - Timestamps y usuario responsable
   - Historial de movimientos y cambios
 
+- ✅ **Persistencia de Datos**
+  - Los datos se guardan automáticamente en localStorage
+  - La información persiste al actualizar la página
+  - No se pierde ningún trabajo realizado
+
 ## Tecnologías utilizadas
 
 ### Frontend

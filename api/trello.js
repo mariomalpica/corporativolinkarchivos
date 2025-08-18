@@ -1,41 +1,7 @@
 // Vercel Serverless Function - Backend real para el tablero compartido
 // Este archivo se ejecuta en Vercel como API endpoint
 
-// Datos en memoria (temporal hasta implementar DB real)
-let globalData = {
-  boards: [
-    {
-      id: 1,
-      title: "📋 Por Hacer",
-      color: "bg-blue-500",
-      cards: [
-        { 
-          id: 1, 
-          title: "¡BACKEND FUNCIONAL!", 
-          description: "Sistema funcionando correctamente", 
-          backgroundColor: "#e3f2fd",
-          createdBy: "Sistema",
-          createdAt: new Date().toISOString()
-        }
-      ]
-    },
-    {
-      id: 2,
-      title: "🔄 En Progreso", 
-      color: "bg-yellow-500",
-      cards: []
-    },
-    {
-      id: 3,
-      title: "✅ Completado",
-      color: "bg-green-500", 
-      cards: []
-    }
-  ],
-  version: 1,
-  lastUpdated: new Date().toISOString(),
-  lastUpdatedBy: 'Sistema'
-};
+import { readData, writeData, validateData } from './utils/database.js';
 
 export default function handler(req, res) {
   // Enable CORS
@@ -50,44 +16,59 @@ export default function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
-      // Retornar datos actuales de memoria
-      console.log('🔥 GET request - returning data:', globalData.version);
+      // Leer datos de Vercel KV
+      const currentData = await readData();
+      console.log('🔥 GET request - returning data from KV:', currentData.version);
       res.status(200).json({
         success: true,
-        data: globalData,
+        data: currentData,
         timestamp: new Date().toISOString()
       });
       
     } else if (req.method === 'POST' || req.method === 'PUT') {
-      // Actualizar datos en memoria
+      // Actualizar datos en Vercel KV
       const newData = req.body;
       
-      if (newData && newData.boards) {
-        console.log('🔥 PUT request - updating data:', {
+      if (newData && newData.boards && validateData(newData)) {
+        console.log('🔥 PUT request - updating data in KV:', {
           boardsCount: newData.boards.length,
           totalCards: newData.boards.reduce((sum, b) => sum + b.cards.length, 0)
         });
         
-        globalData = {
+        // Leer versión actual de KV
+        const currentData = await readData();
+        
+        const updatedData = {
           ...newData,
-          version: (globalData.version || 0) + 1,
+          version: (currentData.version || 0) + 1,
           lastUpdated: new Date().toISOString(),
           lastUpdatedBy: newData.lastUpdatedBy || 'Usuario'
         };
         
-        console.log('🔥 POST/PUT request - data updated:', globalData.version, 'by:', globalData.lastUpdatedBy);
+        // Guardar en KV
+        const success = await writeData(updatedData);
         
-        res.status(200).json({
-          success: true,
-          message: 'Datos actualizados exitosamente',
-          data: globalData,
-          timestamp: new Date().toISOString()
-        });
+        if (success) {
+          console.log('🔥 POST/PUT request - data updated in KV:', updatedData.version, 'by:', updatedData.lastUpdatedBy);
+          
+          res.status(200).json({
+            success: true,
+            message: 'Datos actualizados y guardados en KV exitosamente',
+            data: updatedData,
+            timestamp: new Date().toISOString()
+          });
+        } else {
+          res.status(500).json({
+            success: false,
+            message: 'Error guardando datos en KV',
+            timestamp: new Date().toISOString()
+          });
+        }
       } else {
         console.log('❌ Invalid data received:', { hasBoards: !!newData?.boards });
         res.status(400).json({
           success: false,
-          message: 'Datos inválidos - se requiere "boards"',
+          message: 'Datos inválidos - se requiere estructura válida con "boards"',
           timestamp: new Date().toISOString()
         });
       }

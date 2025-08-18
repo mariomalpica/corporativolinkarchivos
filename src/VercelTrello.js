@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, X, Trash2, RefreshCw, Info, Server } from 'lucide-react';
 import { logCardAction, AUDIT_ACTIONS } from './utils/audit';
+import UserSelector from './components/UserSelector';
 
 const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showControlPanel, setShowControlPanel }) => {
   const [mounted, setMounted] = useState(false);
@@ -212,6 +213,7 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
         description: newCardDescription.trim(),
         backgroundColor: '#ffffff',
         createdBy: currentUser?.username || 'Usuario',
+        assignedTo: currentUser?.username || 'Usuario', // Asignar al creador por defecto
         createdAt: new Date().toISOString()
       };
 
@@ -261,6 +263,55 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
       setShowCardForm(null);
     } finally {
       // Reactivar auto-refresh después de 2 segundos
+      setTimeout(() => setIsPerformingAction(false), 2000);
+    }
+  };
+
+  // Función para actualizar usuario asignado a una tarjeta
+  const updateCardAssignment = async (boardId, cardId, newAssignedTo) => {
+    console.log('👤 Actualizando asignación:', { boardId, cardId, newAssignedTo });
+    setIsPerformingAction(true);
+    
+    try {
+      const newBoards = boards.map(board => {
+        if (board.id === boardId) {
+          return {
+            ...board,
+            cards: board.cards.map(card => 
+              card.id === cardId 
+                ? { ...card, assignedTo: newAssignedTo }
+                : card
+            )
+          };
+        }
+        return board;
+      });
+
+      // Actualizar estado local
+      setBoards(newBoards);
+      
+      // Guardar en servidor
+      const success = await saveData(newBoards);
+      if (!success) {
+        setBoards(boards);
+        return;
+      }
+
+      // Registrar en auditoría
+      const board = boards.find(b => b.id === boardId);
+      const card = board?.cards.find(c => c.id === cardId);
+      if (card && board) {
+        logCardAction(
+          currentUser,
+          AUDIT_ACTIONS.EDIT_CARD,
+          card.title,
+          board.title,
+          cardId,
+          boardId,
+          { assignedTo: newAssignedTo }
+        );
+      }
+    } finally {
       setTimeout(() => setIsPerformingAction(false), 2000);
     }
   };
@@ -640,11 +691,19 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
                         <p className="text-gray-600 text-sm mb-2">{card.description}</p>
                       )}
 
-                      {card.createdBy && (
+                      <div className="flex justify-between items-center">
                         <div className="text-xs text-gray-500">
-                          Por: {card.createdBy}
+                          {card.createdBy && (
+                            <div>Por: {card.createdBy}</div>
+                          )}
                         </div>
-                      )}
+                        
+                        <UserSelector
+                          assignedTo={card.assignedTo}
+                          onAssignUser={(userId) => updateCardAssignment(board.id, card.id, userId)}
+                          currentUser={currentUser}
+                        />
+                      </div>
                     </div>
                   ))}
 

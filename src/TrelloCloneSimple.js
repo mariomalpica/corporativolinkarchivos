@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Plus, X, Edit3, Trash2, Calendar, User, Settings, Mail, Clock, Activity } from 'lucide-react';
+import { logCardAction, logBoardAction, AUDIT_ACTIONS } from './utils/audit';
 
-const TrelloClone = () => {
+const TrelloClone = ({ currentUser }) => {
   // Datos por defecto usando useMemo para estabilidad
   const defaultBoards = useMemo(() => [
     {
@@ -41,12 +42,9 @@ const TrelloClone = () => {
   const [mounted, setMounted] = useState(false);
   const [boards, setBoards] = useState(defaultBoards);
   const [users, setUsers] = useState(defaultUsers);
-  const [currentUser, setCurrentUser] = useState('');
-  const [activityLog, setActivityLog] = useState([]);
   const [emailConfig, setEmailConfig] = useState(defaultEmailConfig);
   
   const [showSettings, setShowSettings] = useState(false);
-  const [showActivityLog, setShowActivityLog] = useState(false);
   const [draggedCard, setDraggedCard] = useState(null);
   const [draggedOverBoard, setDraggedOverBoard] = useState(null);
   const [showCardForm, setShowCardForm] = useState(null);
@@ -95,14 +93,10 @@ const TrelloClone = () => {
     // Cargar datos guardados
     const savedBoards = loadData('trello-boards', defaultBoards);
     const savedUsers = loadData('trello-users', defaultUsers);
-    const savedCurrentUser = loadData('trello-currentUser', '');
-    const savedActivityLog = loadData('trello-activityLog', []);
     const savedEmailConfig = loadData('trello-emailConfig', defaultEmailConfig);
 
     setBoards(savedBoards);
     setUsers(savedUsers);
-    setCurrentUser(savedCurrentUser);
-    setActivityLog(savedActivityLog);
     setEmailConfig(savedEmailConfig);
   }, [loadData, defaultBoards, defaultUsers, defaultEmailConfig]);
 
@@ -114,14 +108,6 @@ const TrelloClone = () => {
   useEffect(() => {
     if (mounted) saveData('trello-users', users);
   }, [users, mounted, saveData]);
-
-  useEffect(() => {
-    if (mounted) saveData('trello-currentUser', currentUser);
-  }, [currentUser, mounted, saveData]);
-
-  useEffect(() => {
-    if (mounted) saveData('trello-activityLog', activityLog);
-  }, [activityLog, mounted, saveData]);
 
   useEffect(() => {
     if (mounted) saveData('trello-emailConfig', emailConfig);
@@ -139,16 +125,10 @@ const TrelloClone = () => {
     { name: 'Gris', value: '#f3f4f6' }
   ];
 
-  // Función para registrar actividad
+  // Función para registrar actividad (mantenida para compatibilidad local)
   const logActivity = (action, details) => {
-    const newActivity = {
-      id: Date.now(),
-      user: currentUser || 'Usuario Anónimo',
-      action,
-      details,
-      timestamp: new Date().toISOString()
-    };
-    setActivityLog(prev => [newActivity, ...prev].slice(0, 100));
+    // Ya no se usa - la auditoría se maneja con el nuevo sistema
+    console.log(`[LEGACY] ${action}: ${details}`);
   };
 
   // Drag and Drop handlers
@@ -172,6 +152,9 @@ const TrelloClone = () => {
     setDraggedOverBoard(null);
 
     if (draggedCard && draggedCard.fromBoardId !== targetBoardId) {
+      const fromBoard = boards.find(b => b.id === draggedCard.fromBoardId);
+      const toBoard = boards.find(b => b.id === targetBoardId);
+      
       setBoards(prevBoards => {
         const newBoards = prevBoards.map(board => {
           if (board.id === draggedCard.fromBoardId) {
@@ -190,6 +173,20 @@ const TrelloClone = () => {
         });
         return newBoards;
       });
+
+      // Registrar en auditoría
+      logCardAction(
+        currentUser,
+        AUDIT_ACTIONS.MOVE_CARD,
+        draggedCard.card.title,
+        toBoard?.title || 'Tablero',
+        draggedCard.card.id,
+        targetBoardId,
+        {
+          fromBoard: fromBoard?.title,
+          fromBoardId: draggedCard.fromBoardId
+        }
+      );
     }
     setDraggedCard(null);
   };
@@ -217,7 +214,21 @@ const TrelloClone = () => {
       );
 
       const boardName = boards.find(b => b.id === boardId)?.title || 'Tablero';
-      logActivity('Tarjeta creada', `"${newCardTitle}" en ${boardName}`);
+      
+      // Registrar en auditoría
+      logCardAction(
+        currentUser,
+        AUDIT_ACTIONS.CREATE_CARD,
+        newCardTitle,
+        boardName,
+        newCard.id,
+        boardId,
+        {
+          description: newCardDescription,
+          assignee: newCardAssignee,
+          dueDate: newCardDueDate
+        }
+      );
 
       // Limpiar formulario
       setNewCardTitle('');
@@ -243,6 +254,15 @@ const TrelloClone = () => {
       };
 
       setBoards(prev => [...prev, newBoard]);
+
+      // Registrar en auditoría
+      logBoardAction(
+        currentUser,
+        AUDIT_ACTIONS.CREATE_BOARD,
+        newBoardTitle,
+        newBoard.id
+      );
+
       setNewBoardTitle('');
       setShowBoardForm(false);
     }
@@ -261,8 +281,16 @@ const TrelloClone = () => {
       )
     );
     
-    if (card) {
-      logActivity('Tarjeta eliminada', `"${card.title}" de ${board?.title}`);
+    if (card && board) {
+      // Registrar en auditoría
+      logCardAction(
+        currentUser,
+        AUDIT_ACTIONS.DELETE_CARD,
+        card.title,
+        board.title,
+        cardId,
+        boardId
+      );
     }
   };
 
@@ -272,12 +300,21 @@ const TrelloClone = () => {
     setBoards(prev => prev.filter(board => board.id !== boardId));
     
     if (board) {
-      logActivity('Tablero eliminado', `"${board.title}" con ${board.cards.length} tarjetas`);
+      // Registrar en auditoría
+      logBoardAction(
+        currentUser,
+        AUDIT_ACTIONS.DELETE_BOARD,
+        board.title,
+        boardId,
+        { cardCount: board.cards.length }
+      );
     }
   };
 
   // Editar tarjeta
   const updateCard = (boardId, cardId, updatedCard) => {
+    const originalCard = boards.find(b => b.id === boardId)?.cards.find(c => c.id === cardId);
+    
     setBoards(prevBoards =>
       prevBoards.map(board =>
         board.id === boardId
@@ -292,16 +329,34 @@ const TrelloClone = () => {
     );
     
     const boardName = boards.find(b => b.id === boardId)?.title || 'Tablero';
-    logActivity('Tarjeta editada', `"${updatedCard.title}" en ${boardName}`);
+    
+    // Calcular cambios para auditoría
+    const changes = [];
+    if (originalCard?.title !== updatedCard.title) changes.push('título');
+    if (originalCard?.description !== updatedCard.description) changes.push('descripción');
+    if (originalCard?.assignee !== updatedCard.assignee) changes.push('asignado');
+    if (originalCard?.dueDate !== updatedCard.dueDate) changes.push('fecha límite');
+    if (originalCard?.backgroundColor !== updatedCard.backgroundColor) changes.push('color');
+
+    // Registrar en auditoría
+    logCardAction(
+      currentUser,
+      AUDIT_ACTIONS.EDIT_CARD,
+      updatedCard.title,
+      boardName,
+      cardId,
+      boardId,
+      { changes: changes.join(', ') || 'detalles menores' }
+    );
     
     setEditingCard(null);
   };
 
-  // Agregar nuevo usuario
+  // Agregar nuevo usuario (función legacy - ahora se maneja en UserAdminPanel)
   const addUser = () => {
     if (newUserName.trim() && !users.includes(newUserName.trim())) {
       setUsers(prev => [...prev, newUserName.trim()]);
-      logActivity('Usuario agregado', newUserName.trim());
+      // Nota: La gestión de usuarios ahora se hace en el panel de administración
       setNewUserName('');
     }
   };
@@ -325,38 +380,18 @@ const TrelloClone = () => {
               <p className="text-sm text-green-600 mt-1">✅ Datos guardados automáticamente</p>
             </div>
             <div className="flex items-center space-x-4">
-              {/* Selector de usuario */}
-              <div className="flex items-center space-x-2">
+              {/* Información del usuario actual */}
+              <div className="flex items-center space-x-2 bg-white px-3 py-2 rounded-lg shadow-sm">
                 <User className="text-gray-600" size={20} />
-                <select
-                  value={currentUser}
-                  onChange={(e) => setCurrentUser(e.target.value)}
-                  className="p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Seleccionar usuario</option>
-                  {users.map(user => (
-                    <option key={user} value={user}>{user}</option>
-                  ))}
-                </select>
+                <span className="text-gray-700 font-medium">{currentUser?.username || 'Usuario'}</span>
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                  currentUser?.role === 'admin' 
+                    ? 'bg-purple-100 text-purple-800' 
+                    : 'bg-blue-100 text-blue-800'
+                }`}>
+                  {currentUser?.role || 'user'}
+                </span>
               </div>
-              
-              {/* Botón de configuración */}
-              <button
-                onClick={() => setShowSettings(true)}
-                className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded"
-                title="Configuración"
-              >
-                <Settings size={20} />
-              </button>
-              
-              {/* Botón de bitácora */}
-              <button
-                onClick={() => setShowActivityLog(true)}
-                className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded"
-                title="Bitácora de actividades"
-              >
-                <Activity size={20} />
-              </button>
             </div>
           </div>
         </div>
@@ -697,42 +732,6 @@ const TrelloClone = () => {
         </div>
       )}
 
-      {/* Modal de Bitácora */}
-      {showActivityLog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-96 overflow-y-auto">
-            <h3 className="text-lg font-semibold mb-4">Bitácora de Actividades</h3>
-            
-            {activityLog.length === 0 ? (
-              <p className="text-gray-500 text-center py-8">No hay actividades registradas</p>
-            ) : (
-              <div className="space-y-3">
-                {activityLog.map(activity => (
-                  <div key={activity.id} className="border-b border-gray-200 pb-3">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="font-medium text-gray-800">{activity.action}</p>
-                        <p className="text-gray-600 text-sm">{activity.details}</p>
-                        <p className="text-xs text-gray-500">Por: {activity.user}</p>
-                      </div>
-                      <span className="text-xs text-gray-500">
-                        {new Date(activity.timestamp).toLocaleString()}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            
-            <button
-              onClick={() => setShowActivityLog(false)}
-              className="w-full mt-4 bg-gray-300 text-gray-700 py-2 px-4 rounded hover:bg-gray-400 transition-colors"
-            >
-              Cerrar
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

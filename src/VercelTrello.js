@@ -13,6 +13,7 @@ const VercelTrello = ({ currentUser }) => {
   const [connectionStatus, setConnectionStatus] = useState('connecting');
   const [error, setError] = useState(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [isPerformingAction, setIsPerformingAction] = useState(false);
   
   // Estados para formularios
   const [showCardForm, setShowCardForm] = useState(null);
@@ -128,9 +129,15 @@ const VercelTrello = ({ currentUser }) => {
 
   // Auto-refresh para detectar cambios de otros usuarios
   useEffect(() => {
-    if (!autoRefresh || !mounted) return;
+    if (!autoRefresh || !mounted || isPerformingAction) return;
     
     const interval = setInterval(async () => {
+      // No auto-refresh si el usuario está realizando una acción
+      if (isPerformingAction) {
+        console.log('⏸️ Auto-refresh pausado - usuario realizando acción');
+        return;
+      }
+      
       try {
         const data = await loadData();
         if (data && data.version > currentVersion) {
@@ -140,10 +147,10 @@ const VercelTrello = ({ currentUser }) => {
       } catch (error) {
         // Error silencioso para auto-refresh
       }
-    }, 3000); // Check every 3 seconds - más rápido
+    }, 3000); // Check every 3 seconds
     
     return () => clearInterval(interval);
-  }, [autoRefresh, mounted, currentVersion, loadData]);
+  }, [autoRefresh, mounted, currentVersion, loadData, isPerformingAction]);
 
   // Inicialización
   useEffect(() => {
@@ -165,81 +172,95 @@ const VercelTrello = ({ currentUser }) => {
   const addCard = async (boardId) => {
     if (!newCardTitle.trim()) return;
 
-    const newCard = {
-      id: Date.now(),
-      title: newCardTitle.trim(),
-      description: newCardDescription.trim(),
-      backgroundColor: '#ffffff',
-      createdBy: currentUser?.username || 'Usuario',
-      createdAt: new Date().toISOString()
-    };
-
-    const newBoards = boards.map(board =>
-      board.id === boardId
-        ? { ...board, cards: [...board.cards, newCard] }
-        : board
-    );
-
-    // Actualizar estado local inmediatamente para UX
-    setBoards(newBoards);
+    setIsPerformingAction(true);
     
-    // Guardar en servidor
-    const success = await saveData(newBoards);
-    if (!success) {
-      // Si falla, revertir cambio local
-      setBoards(boards);
-      return;
+    try {
+      const newCard = {
+        id: Date.now(),
+        title: newCardTitle.trim(),
+        description: newCardDescription.trim(),
+        backgroundColor: '#ffffff',
+        createdBy: currentUser?.username || 'Usuario',
+        createdAt: new Date().toISOString()
+      };
+
+      const newBoards = boards.map(board =>
+        board.id === boardId
+          ? { ...board, cards: [...board.cards, newCard] }
+          : board
+      );
+
+      // Actualizar estado local inmediatamente para UX
+      setBoards(newBoards);
+      
+      // Guardar en servidor
+      const success = await saveData(newBoards);
+      if (!success) {
+        // Si falla, revertir cambio local
+        setBoards(boards);
+        return;
+      }
+
+      // Registrar en auditoría
+      const boardName = boards.find(b => b.id === boardId)?.title || 'Tablero';
+      logCardAction(
+        currentUser,
+        AUDIT_ACTIONS.CREATE_CARD,
+        newCardTitle,
+        boardName,
+        newCard.id,
+        boardId
+      );
+
+      // Limpiar formulario
+      setNewCardTitle('');
+      setNewCardDescription('');
+      setShowCardForm(null);
+    } finally {
+      // Reactivar auto-refresh después de 2 segundos
+      setTimeout(() => setIsPerformingAction(false), 2000);
     }
-
-    // Registrar en auditoría
-    const boardName = boards.find(b => b.id === boardId)?.title || 'Tablero';
-    logCardAction(
-      currentUser,
-      AUDIT_ACTIONS.CREATE_CARD,
-      newCardTitle,
-      boardName,
-      newCard.id,
-      boardId
-    );
-
-    // Limpiar formulario
-    setNewCardTitle('');
-    setNewCardDescription('');
-    setShowCardForm(null);
   };
 
   // Función para eliminar tarjeta
   const deleteCard = async (boardId, cardId) => {
-    const board = boards.find(b => b.id === boardId);
-    const card = board?.cards.find(c => c.id === cardId);
-
-    const newBoards = boards.map(board =>
-      board.id === boardId
-        ? { ...board, cards: board.cards.filter(c => c.id !== cardId) }
-        : board
-    );
-
-    // Actualizar estado local inmediatamente
-    setBoards(newBoards);
+    setIsPerformingAction(true);
     
-    // Guardar en servidor
-    const success = await saveData(newBoards);
-    if (!success) {
-      // Si falla, revertir
-      setBoards(boards);
-      return;
-    }
+    try {
+      const board = boards.find(b => b.id === boardId);
+      const card = board?.cards.find(c => c.id === cardId);
 
-    // Registrar en auditoría
-    if (card && board) {
-      logCardAction(
-        currentUser,
-        AUDIT_ACTIONS.DELETE_CARD,
-        card.title,
-        board.title,
-        cardId,
-        boardId
+      const newBoards = boards.map(board =>
+        board.id === boardId
+          ? { ...board, cards: board.cards.filter(c => c.id !== cardId) }
+          : board
       );
+
+      // Actualizar estado local inmediatamente
+      setBoards(newBoards);
+      
+      // Guardar en servidor
+      const success = await saveData(newBoards);
+      if (!success) {
+        // Si falla, revertir
+        setBoards(boards);
+        return;
+      }
+
+      // Registrar en auditoría
+      if (card && board) {
+        logCardAction(
+          currentUser,
+          AUDIT_ACTIONS.DELETE_CARD,
+          card.title,
+          board.title,
+          cardId,
+          boardId
+        );
+      }
+    } finally {
+      // Reactivar auto-refresh después de 2 segundos
+      setTimeout(() => setIsPerformingAction(false), 2000);
     }
   };
 
@@ -264,50 +285,57 @@ const VercelTrello = ({ currentUser }) => {
     setDraggedOverBoard(null);
 
     if (draggedCard && draggedCard.fromBoardId !== targetBoardId) {
-      const fromBoard = boards.find(b => b.id === draggedCard.fromBoardId);
-      const toBoard = boards.find(b => b.id === targetBoardId);
-
-      const newBoards = boards.map(board => {
-        if (board.id === draggedCard.fromBoardId) {
-          return {
-            ...board,
-            cards: board.cards.filter(c => c.id !== draggedCard.card.id)
-          };
-        }
-        if (board.id === targetBoardId) {
-          return {
-            ...board,
-            cards: [...board.cards, draggedCard.card]
-          };
-        }
-        return board;
-      });
-
-      // Actualizar estado local
-      setBoards(newBoards);
+      setIsPerformingAction(true);
       
-      // Guardar en servidor
-      const success = await saveData(newBoards);
-      if (!success) {
-        // Revertir si falla
-        setBoards(boards);
-        setDraggedCard(null);
-        return;
-      }
+      try {
+        const fromBoard = boards.find(b => b.id === draggedCard.fromBoardId);
+        const toBoard = boards.find(b => b.id === targetBoardId);
 
-      // Registrar en auditoría
-      logCardAction(
-        currentUser,
-        AUDIT_ACTIONS.MOVE_CARD,
-        draggedCard.card.title,
-        toBoard?.title || 'Tablero',
-        draggedCard.card.id,
-        targetBoardId,
-        {
-          fromBoard: fromBoard?.title,
-          fromBoardId: draggedCard.fromBoardId
+        const newBoards = boards.map(board => {
+          if (board.id === draggedCard.fromBoardId) {
+            return {
+              ...board,
+              cards: board.cards.filter(c => c.id !== draggedCard.card.id)
+            };
+          }
+          if (board.id === targetBoardId) {
+            return {
+              ...board,
+              cards: [...board.cards, draggedCard.card]
+            };
+          }
+          return board;
+        });
+
+        // Actualizar estado local
+        setBoards(newBoards);
+        
+        // Guardar en servidor
+        const success = await saveData(newBoards);
+        if (!success) {
+          // Revertir si falla
+          setBoards(boards);
+          setDraggedCard(null);
+          return;
         }
-      );
+
+        // Registrar en auditoría
+        logCardAction(
+          currentUser,
+          AUDIT_ACTIONS.MOVE_CARD,
+          draggedCard.card.title,
+          toBoard?.title || 'Tablero',
+          draggedCard.card.id,
+          targetBoardId,
+          {
+            fromBoard: fromBoard?.title,
+            fromBoardId: draggedCard.fromBoardId
+          }
+        );
+      } finally {
+        // Reactivar auto-refresh después de 2 segundos
+        setTimeout(() => setIsPerformingAction(false), 2000);
+      }
     }
     setDraggedCard(null);
   };
@@ -383,8 +411,8 @@ const VercelTrello = ({ currentUser }) => {
                   ✅ Versión: {currentVersion} | Por: {stats?.lastUpdatedBy || 'Sistema'}
                 </div>
                 
-                <div className="text-xs text-gray-500">
-                  🔄 Auto-refresh: {autoRefresh ? '3s' : 'OFF'}
+                <div className={`text-xs ${isPerformingAction ? 'text-orange-600' : 'text-gray-500'}`}>
+                  🔄 Auto-refresh: {isPerformingAction ? 'PAUSADO' : autoRefresh ? '3s' : 'OFF'}
                 </div>
                 
                 {lastSaved && (

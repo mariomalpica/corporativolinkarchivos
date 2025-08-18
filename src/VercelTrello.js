@@ -295,7 +295,10 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
     e.preventDefault();
     e.stopPropagation();
     
-    if (!draggedCard || draggedCard.card.id === cardId) return;
+    // Solo activar si hay una tarjeta siendo arrastrada y no es la misma
+    if (!draggedCard || draggedCard.card.id === cardId) {
+      return;
+    }
     
     // Calcular si el drop debe ser antes o después
     const rect = e.currentTarget.getBoundingClientRect();
@@ -668,6 +671,7 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
                         onDragStart={(e) => handleDragStart(e, card, board.id)}
                         onDragOver={(e) => handleCardDragOver(e, card.id, board.id)}
                         onDragLeave={handleCardDragLeave}
+                        onDrop={(e) => e.preventDefault()} // Prevenir drop directo en la tarjeta
                         className={`rounded-lg p-3 border transition-all cursor-move group relative ${
                           draggedCard?.card.id === card.id 
                             ? 'opacity-50 border-blue-300 shadow-lg transform scale-105' 
@@ -680,7 +684,12 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
                       <div className="flex justify-between items-start mb-2">
                         <h3 className="font-medium text-gray-800 flex-1">{card.title}</h3>
                         <button
-                          onClick={() => deleteCard(board.id, card.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            deleteCard(board.id, card.id);
+                          }}
+                          onMouseDown={(e) => e.stopPropagation()}
                           className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
                         >
                           <Trash2 size={14} />

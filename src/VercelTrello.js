@@ -499,91 +499,14 @@ const VercelTrello = ({ currentUser }) => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex justify-between items-start">
-            <div>
-              <div className="flex items-center space-x-4 mt-2">
-                {/* Status de conexión */}
-                <div className={`flex items-center space-x-1 text-sm ${
-                  connectionStatus === 'connected' ? 'text-green-600' : 
-                  connectionStatus === 'error' ? 'text-red-600' : 'text-yellow-600'
-                }`}>
-                  {connectionStatus === 'connected' ? <Server size={16} /> : <WifiOff size={16} />}
-                  <span>
-                    {connectionStatus === 'connected' ? 'Conectado' : 
-                     connectionStatus === 'error' ? 'Error de conexión' : 'Conectando...'}
-                  </span>
-                </div>
-                
-                <div className="text-sm text-blue-600">
-                  ✅ Versión: {currentVersion} | Por: {stats?.lastUpdatedBy || 'Sistema'}
-                </div>
-                
-                <div className={`text-xs ${isPerformingAction ? 'text-orange-600' : 'text-gray-500'}`}>
-                  🔄 Auto-refresh: {isPerformingAction ? 'PAUSADO' : autoRefresh ? '3s' : 'OFF'}
-                </div>
-                
-                {lastSaved && (
-                  <div className="text-xs text-gray-500">
-                    Guardado: {lastSaved}
-                  </div>
-                )}
-              </div>
-            </div>
-            
-            <div className="flex items-center space-x-2">
-              {/* Toggle auto-refresh */}
-              <button
-                onClick={() => setAutoRefresh(!autoRefresh)}
-                className={`px-3 py-2 text-sm rounded-lg ${
-                  autoRefresh 
-                    ? 'bg-green-100 text-green-700 hover:bg-green-200' 
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-                title="Activar/Desactivar actualización automática"
-              >
-                🔄 Auto
-              </button>
-
-              {/* Botón de instrucciones */}
-              <button
-                onClick={() => setShowInstructions(true)}
-                className="flex items-center space-x-1 px-3 py-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg"
-                title="Ver instrucciones"
-              >
-                <Info size={16} />
-                <span className="hidden sm:inline">Info</span>
-              </button>
-
-              {/* Botón de actualizar */}
-              <button
-                onClick={handleRefresh}
-                className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-                title="Actualizar ahora"
-              >
-                <RefreshCw size={16} />
-                <span>Actualizar</span>
-              </button>
-              
-              {/* Info del usuario */}
-              <div className="bg-white px-3 py-2 rounded-lg shadow-sm">
-                <span className="text-sm font-medium text-gray-700">
-                  👤 {currentUser?.username || 'Usuario'}
-                </span>
-              </div>
+        {/* Error banner */}
+        {error && (
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-3">
+            <div className="text-red-800 text-sm">
+              ⚠️ {error}
             </div>
           </div>
-
-          {/* Error banner */}
-          {error && (
-            <div className="mt-4 bg-red-50 border border-red-200 rounded-lg p-3">
-              <div className="text-red-800 text-sm">
-                ⚠️ {error}
-              </div>
-            </div>
-          )}
-        </div>
+        )}
 
         {/* Boards */}
         <div className="flex space-x-6 overflow-x-auto pb-6">
@@ -759,6 +682,81 @@ const VercelTrello = ({ currentUser }) => {
               </button>
             </div>
           )}
+        </div>
+
+        {/* Controls moved to bottom */}
+        <div className="mt-8 bg-white rounded-lg shadow-sm p-4">
+          <div className="flex flex-wrap justify-between items-center gap-4">
+            <div className="flex items-center space-x-4">
+              {/* Status de conexión */}
+              <div className={`flex items-center space-x-1 text-sm ${
+                connectionStatus === 'connected' ? 'text-green-600' : 
+                connectionStatus === 'error' ? 'text-red-600' : 'text-yellow-600'
+              }`}>
+                {connectionStatus === 'connected' ? <Server size={16} /> : <WifiOff size={16} />}
+                <span>
+                  {connectionStatus === 'connected' ? 'Conectado' : 
+                   connectionStatus === 'error' ? 'Error de conexión' : 'Conectando...'}
+                </span>
+              </div>
+              
+              <div className="text-sm text-blue-600">
+                ✅ Versión: {currentVersion} | Por: {stats?.lastUpdatedBy || 'Sistema'}
+              </div>
+              
+              <div className={`text-xs ${isPerformingAction ? 'text-orange-600' : 'text-gray-500'}`}>
+                🔄 Auto-refresh: {isPerformingAction ? 'PAUSADO' : autoRefresh ? '3s' : 'OFF'}
+              </div>
+              
+              {lastSaved && (
+                <div className="text-xs text-gray-500">
+                  Guardado: {lastSaved}
+                </div>
+              )}
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              {/* Toggle auto-refresh */}
+              <button
+                onClick={() => setAutoRefresh(!autoRefresh)}
+                className={`px-3 py-2 text-sm rounded-lg ${
+                  autoRefresh 
+                    ? 'bg-green-100 text-green-700 hover:bg-green-200' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+                title="Activar/Desactivar actualización automática"
+              >
+                🔄 Auto
+              </button>
+
+              {/* Botón de instrucciones */}
+              <button
+                onClick={() => setShowInstructions(true)}
+                className="flex items-center space-x-1 px-3 py-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg"
+                title="Ver instrucciones"
+              >
+                <Info size={16} />
+                <span className="hidden sm:inline">Info</span>
+              </button>
+
+              {/* Botón de actualizar */}
+              <button
+                onClick={handleRefresh}
+                className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                title="Actualizar ahora"
+              >
+                <RefreshCw size={16} />
+                <span>Actualizar</span>
+              </button>
+              
+              {/* Info del usuario */}
+              <div className="bg-white px-3 py-2 rounded-lg shadow-sm border">
+                <span className="text-sm font-medium text-gray-700">
+                  👤 {currentUser?.username || 'Usuario'}
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
 
       </div>

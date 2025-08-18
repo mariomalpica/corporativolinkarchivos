@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import VercelTrello from './VercelTrello';
 import TestAPI from './TestAPI';
+import DebugAuth from './DebugAuth';
 import AuthModal from './components/AuthModal';
 import UserAdminPanel from './components/UserAdminPanel';
 import AuditPanel from './components/AuditPanel';
@@ -19,6 +20,7 @@ function App() {
   const [showUserAdmin, setShowUserAdmin] = useState(false);
   const [showAuditPanel, setShowAuditPanel] = useState(false);
   const [showTestAPI, setShowTestAPI] = useState(false);
+  const [showDebugAuth, setShowDebugAuth] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -83,6 +85,12 @@ function App() {
             <div className="mt-8 text-sm text-gray-500">
               <p>Usuario de prueba: <strong>admin</strong></p>
               <p>Contraseña: <strong>admin123</strong></p>
+              <button
+                onClick={() => setShowDebugAuth(true)}
+                className="mt-4 text-blue-500 hover:text-blue-700 underline"
+              >
+                🔍 Debug Autenticación
+              </button>
             </div>
           </div>
         </div>
@@ -201,6 +209,23 @@ function App() {
               </button>
             </div>
             <TestAPI />
+          </div>
+        </div>
+      )}
+
+      {showDebugAuth && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg w-full max-w-4xl h-5/6 overflow-auto">
+            <div className="p-4 border-b flex justify-between items-center">
+              <h2 className="text-xl font-bold">🔍 Debug Autenticación</h2>
+              <button
+                onClick={() => setShowDebugAuth(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </button>
+            </div>
+            <DebugAuth />
           </div>
         </div>
       )}

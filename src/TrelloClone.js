@@ -548,7 +548,7 @@ const TrelloClone = () => {
                       />
                       <div className="flex space-x-2">
                         <button
-                          onClick={() => addCard(board.id)}
+                          onClick={async () => await addCard(board.id)}
                           className="flex-1 bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 transition-colors"
                         >
                           Agregar
@@ -688,7 +688,7 @@ const TrelloClone = () => {
             />
             <div className="flex space-x-3">
               <button
-                onClick={() => updateCard(editingCard.boardId, editingCard.id, editingCard)}
+                onClick={async () => await updateCard(editingCard.boardId, editingCard.id, editingCard)}
                 className="flex-1 bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 transition-colors"
               >
                 Guardar

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import TrelloClone from './TrelloCloneSimple';
+import SimpleTrello from './SimpleTrello';
 import TestAPI from './TestAPI';
 import AuthModal from './components/AuthModal';
 import UserAdminPanel from './components/UserAdminPanel';
@@ -164,7 +164,7 @@ function App() {
       </div>
 
       {/* Componente principal */}
-      <TrelloClone currentUser={currentUser} />
+      <SimpleTrello currentUser={currentUser} />
 
       {/* Modales */}
       {showAuthModal && (

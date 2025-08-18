@@ -94,7 +94,7 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
         lastUpdatedBy: currentUser?.username || 'Usuario'
       };
       
-      console.log('🔥 CRISIS - saveData INICIADA:', {
+      console.log('💾 Guardando datos:', {
         API_URL,
         boardsCount: newBoards.length,
         totalCards: newBoards.reduce((sum, b) => sum + b.cards.length, 0),
@@ -109,7 +109,7 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
         body: JSON.stringify(dataToSave)
       });
       
-      console.log('🔥 CRISIS - Respuesta del servidor:', {
+      console.log('📡 Respuesta del servidor:', {
         status: response.status,
         ok: response.ok,
         statusText: response.statusText
@@ -197,7 +197,7 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
 
   // Función para agregar nueva tarjeta
   const addCard = async (boardId) => {
-    console.log('🔥 CRISIS - addCard INICIADA:', { 
+    console.log('➕ Agregando tarjeta:', { 
       boardId, 
       title: newCardTitle.trim(),
       currentBoards: boards.length,
@@ -206,11 +206,11 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
     });
     
     if (!newCardTitle.trim()) {
-      console.log('❌ CRISIS - Título vacío, ABORTANDO');
+      console.log('❌ Título vacío, cancelando');
       return;
     }
 
-    console.log('🔥 CRISIS - Título válido, continuando...');
+    console.log('✅ Título válido, continuando...');
     setIsPerformingAction(true);
     
     try {
@@ -224,7 +224,7 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
         createdAt: new Date().toISOString()
       };
 
-      console.log('🔥 CRISIS - Nueva tarjeta creada:', newCard);
+      console.log('✨ Nueva tarjeta creada:', newCard);
 
       const newBoards = boards.map(board =>
         board.id === boardId
@@ -232,23 +232,23 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
           : board
       );
 
-      console.log('🔥 CRISIS - Nuevos boards calculados:', { 
+      console.log('📊 Boards actualizados:', { 
         originalBoardsCount: boards.length,
         newBoardsCount: newBoards.length,
         targetBoardCards: newBoards.find(b => b.id === boardId)?.cards.length
       });
 
       // Actualizar estado local inmediatamente para UX
-      console.log('🔥 CRISIS - Actualizando estado local...');
+      console.log('🔄 Actualizando estado local...');
       setBoards(newBoards);
       
       // Guardar en servidor
-      console.log('🔥 CRISIS - Guardando en servidor...');
+      console.log('💾 Guardando en servidor...');
       const success = await saveData(newBoards);
-      console.log('🔥 CRISIS - Resultado saveData:', success);
+      console.log('✅ Resultado guardado:', success);
       
       if (!success) {
-        console.log('❌ CRISIS - FALLO AL GUARDAR, revirtiendo...');
+        console.log('❌ Error al guardar, revirtiendo...');
         setBoards(boards);
         return;
       }
@@ -410,7 +410,7 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
 
   // Función para eliminar tarjeta
   const deleteCard = async (boardId, cardId) => {
-    console.log('🚨 EMERGENCIA - Intentando eliminar tarjeta:', { boardId, cardId });
+    console.log('🗑️ Eliminando tarjeta:', { boardId, cardId });
     setIsPerformingAction(true);
     
     try {
@@ -475,7 +475,7 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
       return;
     }
 
-    console.log('🚨 EMERGENCIA - handleDrop ejecutado:', { 
+    console.log('🎯 Drag & Drop ejecutado:', { 
       fromBoard: draggedCard.fromBoardId, 
       toBoard: targetBoardId,
       sameBoardReorder: draggedCard.fromBoardId === targetBoardId
@@ -491,7 +491,7 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
 
       // Si es el mismo tablero (reordenamiento), insertar al principio para efecto visual
       if (draggedCard.fromBoardId === targetBoardId) {
-        console.log('🔄 EMERGENCIA - Reordenando en mismo tablero');
+        console.log('🔄 Reordenando en mismo tablero');
         newBoards = boards.map(board => {
           if (board.id === targetBoardId) {
             const filteredCards = board.cards.filter(c => c.id !== draggedCard.card.id);
@@ -504,7 +504,7 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
         });
       } else {
         // Movimiento entre tableros diferentes
-        console.log('🔄 EMERGENCIA - Moviendo entre tableros');
+        console.log('🔄 Moviendo entre tableros');
         newBoards = boards.map(board => {
           if (board.id === draggedCard.fromBoardId) {
             return {
@@ -549,7 +549,7 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
         }
       );
     } catch (error) {
-      console.error('❌ EMERGENCIA - Error en handleDrop:', error);
+      console.error('❌ Error en drag & drop:', error);
       setBoards(boards);
     } finally {
       // Reactivar auto-refresh después de 2 segundos
@@ -781,7 +781,7 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
                           </button>
                           <button
                             onClick={() => {
-                              console.log('🚨 EMERGENCIA - Click en botón eliminar detectado');
+                              console.log('🗑️ Click en eliminar detectado');
                               deleteCard(board.id, card.id);
                             }}
                             className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -857,14 +857,14 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
                       <div className="flex space-x-2">
                         <button
                           onClick={(e) => {
-                            console.log('🔥 CRISIS - CLICK DETECTADO EN BOTÓN AGREGAR!', { 
+                            console.log('➕ Click en agregar detectado:', { 
                               boardId: board.id, 
                               title: newCardTitle,
                               titleLength: newCardTitle?.length,
                               disabled: !newCardTitle.trim(),
                               event: e.type
                             });
-                            console.log('🔥 CRISIS - Llamando addCard...');
+                            console.log('📝 Ejecutando addCard...');
                             addCard(board.id);
                           }}
                           className="flex-1 bg-blue-500 text-white py-2 px-3 rounded hover:bg-blue-600"

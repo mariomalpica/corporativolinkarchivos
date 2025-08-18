@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, X, Trash2, RefreshCw, Info, Wifi, WifiOff, Server, HelpCircle } from 'lucide-react';
+import { Plus, X, Trash2, RefreshCw, Info, Server } from 'lucide-react';
 import { logCardAction, AUDIT_ACTIONS } from './utils/audit';
 
-const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel }) => {
+const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showControlPanel, setShowControlPanel }) => {
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [boards, setBoards] = useState([]);
@@ -22,7 +22,6 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel }) => {
   const [showBoardForm, setShowBoardForm] = useState(false);
   const [newBoardTitle, setNewBoardTitle] = useState('');
   const [newBoardColor, setNewBoardColor] = useState('bg-blue-500');
-  const [showControlPanel, setShowControlPanel] = useState(false);
   const [draggedCard, setDraggedCard] = useState(null);
   const [draggedOverBoard, setDraggedOverBoard] = useState(null);
 
@@ -504,18 +503,6 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel }) => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Control Panel Button */}
-        <div className="mb-6 flex justify-end">
-          <button
-            onClick={() => setShowControlPanel(true)}
-            className="flex items-center space-x-2 px-4 py-2 bg-white rounded-full shadow-md hover:shadow-lg text-gray-600 hover:text-gray-800 transition-all duration-200"
-            title="Panel de Control"
-          >
-            <HelpCircle size={20} />
-            <span className="hidden sm:inline text-sm font-medium">Panel de Control</span>
-          </button>
-        </div>
-
         {/* Error banner */}
         {error && (
           <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-3">

@@ -11,7 +11,7 @@ import {
   createDefaultAdmin 
 } from './utils/auth';
 import { logUserAction, AUDIT_ACTIONS } from './utils/audit';
-import { LogOut, Users, Activity, Shield } from 'lucide-react';
+import { LogOut, Users, HelpCircle } from 'lucide-react';
 import './index.css';
 
 function App() {
@@ -21,6 +21,7 @@ function App() {
   const [showAuditPanel, setShowAuditPanel] = useState(false);
   const [showTestAPI, setShowTestAPI] = useState(false);
   const [showDebugAuth, setShowDebugAuth] = useState(false);
+  const [showControlPanel, setShowControlPanel] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -138,6 +139,16 @@ function App() {
               </button>
             )}
 
+            {/* Botón Panel de Control */}
+            <button
+              onClick={() => setShowControlPanel(true)}
+              className="flex items-center space-x-1 px-3 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded"
+              title="Panel de Control"
+            >
+              <HelpCircle size={16} />
+              <span className="hidden sm:inline">Panel</span>
+            </button>
+
             {/* Botón de logout */}
             <button
               onClick={handleLogout}
@@ -156,6 +167,8 @@ function App() {
         currentUser={currentUser} 
         onShowTestAPI={() => setShowTestAPI(true)}
         onShowAuditPanel={() => setShowAuditPanel(true)}
+        showControlPanel={showControlPanel}
+        setShowControlPanel={setShowControlPanel}
       />
 
       {/* Modales */}

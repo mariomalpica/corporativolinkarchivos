@@ -487,18 +487,28 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
 
   // Drag and Drop functions
   const handleDragStart = (e, card, boardId) => {
+    console.log('🎯 Drag iniciado:', { cardId: card.id, fromBoard: boardId });
     setDraggedCard({ card, fromBoardId: boardId });
     e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', ''); // Necesario para algunos navegadores
   };
 
   const handleDragOver = (e, boardId) => {
     e.preventDefault();
+    e.stopPropagation();
     e.dataTransfer.dropEffect = 'move';
-    setDraggedOverBoard(boardId);
+    
+    // Solo cambiar si realmente es diferente
+    if (draggedOverBoard !== boardId) {
+      setDraggedOverBoard(boardId);
+    }
   };
 
-  const handleDragLeave = () => {
-    setDraggedOverBoard(null);
+  const handleDragLeave = (e) => {
+    // Solo resetear si realmente salimos del contenedor
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      setDraggedOverBoard(null);
+    }
   };
 
   const handleDrop = async (e, targetBoardId) => {
@@ -763,12 +773,17 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
           {boards.map(board => (
             <div
               key={board.id}
-              className={`flex-shrink-0 w-80 rounded-lg shadow-lg overflow-hidden ${
-                draggedOverBoard === board.id ? 'ring-4 ring-blue-300' : ''
+              className={`flex-shrink-0 w-80 rounded-lg shadow-lg overflow-hidden transition-all duration-200 ${
+                draggedOverBoard === board.id 
+                  ? 'ring-4 ring-blue-300 bg-blue-50 scale-105' 
+                  : 'bg-white'
               }`}
               onDragOver={(e) => handleDragOver(e, board.id)}
               onDragLeave={handleDragLeave}
               onDrop={(e) => handleDrop(e, board.id)}
+              style={{
+                minHeight: '400px'
+              }}
             >
               {/* Board Header */}
               <div className={`${board.color} p-4 group/header`}>
@@ -859,6 +874,23 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
                       </div>
                     </div>
                   ))}
+
+                  {/* Drop Zone - Área extra para soltar tarjetas */}
+                  <div
+                    className={`min-h-[60px] rounded-lg border-2 border-dashed transition-all duration-200 ${
+                      draggedOverBoard === board.id && draggedCard
+                        ? 'border-blue-400 bg-blue-50'
+                        : 'border-transparent'
+                    }`}
+                    onDragOver={(e) => handleDragOver(e, board.id)}
+                    onDrop={(e) => handleDrop(e, board.id)}
+                  >
+                    {draggedOverBoard === board.id && draggedCard && (
+                      <div className="flex items-center justify-center h-full text-blue-600 text-sm">
+                        📂 Soltar aquí
+                      </div>
+                    )}
+                  </div>
 
                   {/* Add Card Form */}
                   {showCardForm === board.id ? (

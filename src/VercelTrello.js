@@ -346,7 +346,7 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
 
       let newBoards;
 
-      // Si es el mismo tablero (reordenamiento), simplemente remover y agregar al final
+      // Si es el mismo tablero (reordenamiento), insertar al principio para efecto visual
       if (draggedCard.fromBoardId === targetBoardId) {
         console.log('🔄 EMERGENCIA - Reordenando en mismo tablero');
         newBoards = boards.map(board => {
@@ -354,7 +354,7 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
             const filteredCards = board.cards.filter(c => c.id !== draggedCard.card.id);
             return {
               ...board,
-              cards: [...filteredCards, draggedCard.card] // Agregar al final
+              cards: [draggedCard.card, ...filteredCards] // Agregar al PRINCIPIO para efecto visual
             };
           }
           return board;

@@ -1,7 +1,41 @@
 // Vercel Serverless Function - Backend real para el tablero compartido
 // Este archivo se ejecuta en Vercel como API endpoint
 
-import { readData, writeData, validateData, createBackup } from './utils/dataManager.js';
+// Datos en memoria (temporal hasta implementar DB real)
+let globalData = {
+  boards: [
+    {
+      id: 1,
+      title: "📋 Por Hacer",
+      color: "bg-blue-500",
+      cards: [
+        { 
+          id: 1, 
+          title: "¡BACKEND FUNCIONAL!", 
+          description: "Sistema funcionando correctamente", 
+          backgroundColor: "#e3f2fd",
+          createdBy: "Sistema",
+          createdAt: new Date().toISOString()
+        }
+      ]
+    },
+    {
+      id: 2,
+      title: "🔄 En Progreso", 
+      color: "bg-yellow-500",
+      cards: []
+    },
+    {
+      id: 3,
+      title: "✅ Completado",
+      color: "bg-green-500", 
+      cards: []
+    }
+  ],
+  version: 1,
+  lastUpdated: new Date().toISOString(),
+  lastUpdatedBy: 'Sistema'
+};
 
 export default function handler(req, res) {
   // Enable CORS
@@ -16,59 +50,44 @@ export default function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
-      // Leer datos del archivo persistente
-      const currentData = readData();
-      console.log('GET request - returning data:', currentData.version);
+      // Retornar datos actuales de memoria
+      console.log('🔥 GET request - returning data:', globalData.version);
       res.status(200).json({
         success: true,
-        data: currentData,
+        data: globalData,
         timestamp: new Date().toISOString()
       });
       
     } else if (req.method === 'POST' || req.method === 'PUT') {
-      // Actualizar datos
+      // Actualizar datos en memoria
       const newData = req.body;
       
-      if (newData && newData.boards && validateData(newData)) {
-        // Leer datos actuales para obtener la versión
-        const currentData = readData();
+      if (newData && newData.boards) {
+        console.log('🔥 PUT request - updating data:', {
+          boardsCount: newData.boards.length,
+          totalCards: newData.boards.reduce((sum, b) => sum + b.cards.length, 0)
+        });
         
-        // Crear backup antes de actualizar (opcional)
-        if (currentData.version > 1) {
-          createBackup(currentData);
-        }
-        
-        // Preparar nuevos datos
-        const updatedData = {
+        globalData = {
           ...newData,
-          version: (currentData.version || 0) + 1,
+          version: (globalData.version || 0) + 1,
           lastUpdated: new Date().toISOString(),
           lastUpdatedBy: newData.lastUpdatedBy || 'Usuario'
         };
         
-        // Guardar en archivo persistente
-        const saveSuccess = writeData(updatedData);
+        console.log('🔥 POST/PUT request - data updated:', globalData.version, 'by:', globalData.lastUpdatedBy);
         
-        if (saveSuccess) {
-          console.log('POST/PUT request - data updated and saved:', updatedData.version, 'by:', updatedData.lastUpdatedBy);
-          
-          res.status(200).json({
-            success: true,
-            message: 'Datos actualizados y guardados exitosamente',
-            data: updatedData,
-            timestamp: new Date().toISOString()
-          });
-        } else {
-          res.status(500).json({
-            success: false,
-            message: 'Error guardando datos en el servidor',
-            timestamp: new Date().toISOString()
-          });
-        }
+        res.status(200).json({
+          success: true,
+          message: 'Datos actualizados exitosamente',
+          data: globalData,
+          timestamp: new Date().toISOString()
+        });
       } else {
+        console.log('❌ Invalid data received:', { hasBoards: !!newData?.boards });
         res.status(400).json({
           success: false,
-          message: 'Datos inválidos - se requiere estructura válida con "boards"',
+          message: 'Datos inválidos - se requiere "boards"',
           timestamp: new Date().toISOString()
         });
       }

@@ -1,7 +1,43 @@
 // Vercel Serverless Function - Backend real para el tablero compartido
 // Este archivo se ejecuta en Vercel como API endpoint
-
 import { readData, writeData, validateData } from './utils/database.js';
+
+// Datos en memoria (funcional hasta implementar persistencia)
+let globalData = {
+  boards: [
+    {
+      id: 1,
+      title: "📋 Por Hacer",
+      color: "bg-blue-500",
+      cards: [
+        { 
+          id: 1, 
+          title: "¡SISTEMA RESTAURADO!", 
+          description: "Funcionalidad básica restaurada", 
+          backgroundColor: "#e3f2fd",
+          createdBy: "Sistema",
+          assignedTo: "Sistema",
+          createdAt: new Date().toISOString()
+        }
+      ]
+    },
+    {
+      id: 2,
+      title: "🔄 En Progreso", 
+      color: "bg-yellow-500",
+      cards: []
+    },
+    {
+      id: 3,
+      title: "✅ Completado",
+      color: "bg-green-500", 
+      cards: []
+    }
+  ],
+  version: 1,
+  lastUpdated: new Date().toISOString(),
+  lastUpdatedBy: 'Sistema'
+};
 
 export default function handler(req, res) {
   // Enable CORS

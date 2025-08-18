@@ -503,10 +503,6 @@ const VercelTrello = ({ currentUser }) => {
         <div className="mb-8">
           <div className="flex justify-between items-start">
             <div>
-              <h1 className="text-4xl font-bold text-gray-800 mb-2">
-                📋 Mi Tablero de Tareas
-              </h1>
-              <p className="text-gray-600">Organiza tus proyectos y tareas</p>
               <div className="flex items-center space-x-4 mt-2">
                 {/* Status de conexión */}
                 <div className={`flex items-center space-x-1 text-sm ${

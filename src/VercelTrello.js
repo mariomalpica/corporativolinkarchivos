@@ -27,6 +27,7 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
   const [newBoardColor, setNewBoardColor] = useState('bg-blue-500');
   const [draggedCard, setDraggedCard] = useState(null);
   const [draggedOverBoard, setDraggedOverBoard] = useState(null);
+  const [draggedOverCard, setDraggedOverCard] = useState(null);
   
   // Estados para edición de tarjetas
   const [editingCard, setEditingCard] = useState(null);
@@ -179,30 +180,30 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
     }
   }, [currentUser, currentVersion]);
 
-  // Auto-refresh para detectar cambios de otros usuarios
-  useEffect(() => {
-    if (!autoRefresh || !mounted || isPerformingAction) return;
+  // Auto-refresh DESHABILITADO - Causaba pérdida de datos durante drag & drop
+  // useEffect(() => {
+  //   if (!autoRefresh || !mounted || isPerformingAction) return;
     
-    const interval = setInterval(async () => {
-      // No auto-refresh si el usuario está realizando una acción
-      if (isPerformingAction) {
-        console.log('⏸️ Auto-refresh pausado - usuario realizando acción');
-        return;
-      }
+  //   const interval = setInterval(async () => {
+  //     // No auto-refresh si el usuario está realizando una acción
+  //     if (isPerformingAction) {
+  //       console.log('⏸️ Auto-refresh pausado - usuario realizando acción');
+  //       return;
+  //     }
       
-      try {
-        const data = await loadData();
-        if (data && data.version > currentVersion) {
-          console.log('🔄 Cambios detectados de otros usuarios en Vercel');
-          // Los datos ya se actualizaron en loadData
-        }
-      } catch (error) {
-        // Error silencioso para auto-refresh
-      }
-    }, 3000); // Check every 3 seconds
+  //     try {
+  //       const data = await loadData();
+  //       if (data && data.version > currentVersion) {
+  //         console.log('🔄 Cambios detectados de otros usuarios en Vercel');
+  //         // Los datos ya se actualizaron en loadData
+  //       }
+  //     } catch (error) {
+  //       // Error silencioso para auto-refresh
+  //     }
+  //   }, 3000); // Check every 3 seconds
     
-    return () => clearInterval(interval);
-  }, [autoRefresh, mounted, currentVersion, loadData, isPerformingAction]);
+  //   return () => clearInterval(interval);
+  // }, [autoRefresh, mounted, currentVersion, loadData, isPerformingAction]);
 
   // Inicialización
   useEffect(() => {
@@ -508,7 +509,21 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
     // Solo resetear si realmente salimos del contenedor
     if (!e.currentTarget.contains(e.relatedTarget)) {
       setDraggedOverBoard(null);
+      setDraggedOverCard(null);
     }
+  };
+
+  const handleCardDragOver = (e, cardId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (draggedCard && draggedCard.card.id !== cardId) {
+      setDraggedOverCard(cardId);
+    }
+  };
+
+  const handleCardDragLeave = (e) => {
+    e.stopPropagation();
+    setDraggedOverCard(null);
   };
 
   const handleDrop = async (e, targetBoardId) => {
@@ -812,7 +827,14 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
                       key={card.id}
                       draggable
                       onDragStart={(e) => handleDragStart(e, card, board.id)}
-                      className="rounded-lg p-3 border border-gray-200 hover:shadow-md transition-shadow cursor-move group"
+                      onDragOver={(e) => handleCardDragOver(e, card.id)}
+                      onDragLeave={handleCardDragLeave}
+                      onDrop={(e) => handleDrop(e, board.id, card.id)}
+                      className={`rounded-lg p-3 border transition-all duration-200 cursor-move group ${
+                        draggedOverCard === card.id 
+                          ? 'border-blue-400 shadow-lg border-2' 
+                          : 'border-gray-200 hover:shadow-md'
+                      }`}
                       style={{ 
                         backgroundColor: isCardOverdue(card.dueDate) 
                           ? '#fecaca' // Rojo claro para tarjetas vencidas

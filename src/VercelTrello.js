@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, X, Trash2, RefreshCw, Info, Server } from 'lucide-react';
+import { Plus, X, Trash2, RefreshCw, Info, Server, Edit3 } from 'lucide-react';
 import { logCardAction, AUDIT_ACTIONS } from './utils/audit';
 import UserSelector from './components/UserSelector';
 
@@ -20,11 +20,18 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
   const [showCardForm, setShowCardForm] = useState(null);
   const [newCardTitle, setNewCardTitle] = useState('');
   const [newCardDescription, setNewCardDescription] = useState('');
+  const [newCardColor, setNewCardColor] = useState('#ffffff');
   const [showBoardForm, setShowBoardForm] = useState(false);
   const [newBoardTitle, setNewBoardTitle] = useState('');
   const [newBoardColor, setNewBoardColor] = useState('bg-blue-500');
   const [draggedCard, setDraggedCard] = useState(null);
   const [draggedOverBoard, setDraggedOverBoard] = useState(null);
+  
+  // Estados para edición de tarjetas
+  const [editingCard, setEditingCard] = useState(null);
+  const [editCardTitle, setEditCardTitle] = useState('');
+  const [editCardDescription, setEditCardDescription] = useState('');
+  const [editCardColor, setEditCardColor] = useState('#ffffff');
 
   // API endpoint - será nuestra propia API en Vercel
   const API_URL = '/api/trello';
@@ -211,7 +218,7 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
         id: Date.now(),
         title: newCardTitle.trim(),
         description: newCardDescription.trim(),
-        backgroundColor: '#ffffff',
+        backgroundColor: newCardColor,
         createdBy: currentUser?.username || 'Usuario',
         assignedTo: currentUser?.username || 'Usuario', // Asignar al creador por defecto
         createdAt: new Date().toISOString()
@@ -260,6 +267,7 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
       // Limpiar formulario
       setNewCardTitle('');
       setNewCardDescription('');
+      setNewCardColor('#ffffff');
       setShowCardForm(null);
     } finally {
       // Reactivar auto-refresh después de 2 segundos
@@ -313,6 +321,90 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
       }
     } finally {
       setTimeout(() => setIsPerformingAction(false), 2000);
+    }
+  };
+
+  // Función para abrir modal de edición de tarjeta
+  const openEditCard = (boardId, card) => {
+    console.log('✏️ Abriendo edición de tarjeta:', { boardId, cardId: card.id });
+    setEditingCard({ boardId, cardId: card.id });
+    setEditCardTitle(card.title);
+    setEditCardDescription(card.description || '');
+    setEditCardColor(card.backgroundColor || '#ffffff');
+  };
+
+  // Función para cerrar modal de edición
+  const closeEditCard = () => {
+    setEditingCard(null);
+    setEditCardTitle('');
+    setEditCardDescription('');
+    setEditCardColor('#ffffff');
+  };
+
+  // Función para actualizar tarjeta
+  const updateCard = async (boardId, cardId, updates) => {
+    console.log('📝 Actualizando tarjeta:', { boardId, cardId, updates });
+    setIsPerformingAction(true);
+    
+    try {
+      const newBoards = boards.map(board => {
+        if (board.id === boardId) {
+          return {
+            ...board,
+            cards: board.cards.map(card => 
+              card.id === cardId 
+                ? { ...card, ...updates }
+                : card
+            )
+          };
+        }
+        return board;
+      });
+
+      // Actualizar estado local
+      setBoards(newBoards);
+      
+      // Guardar en servidor
+      const success = await saveData(newBoards);
+      if (!success) {
+        setBoards(boards);
+        return false;
+      }
+
+      // Registrar en auditoría
+      const board = boards.find(b => b.id === boardId);
+      const card = board?.cards.find(c => c.id === cardId);
+      if (card && board) {
+        logCardAction(
+          currentUser,
+          AUDIT_ACTIONS.EDIT_CARD,
+          card.title,
+          board.title,
+          cardId,
+          boardId,
+          updates
+        );
+      }
+
+      return true;
+    } finally {
+      setTimeout(() => setIsPerformingAction(false), 2000);
+    }
+  };
+
+  // Función para guardar cambios de edición
+  const saveCardEdit = async () => {
+    if (!editingCard || !editCardTitle.trim()) return;
+
+    const updates = {
+      title: editCardTitle,
+      description: editCardDescription,
+      backgroundColor: editCardColor
+    };
+
+    const success = await updateCard(editingCard.boardId, editingCard.cardId, updates);
+    if (success) {
+      closeEditCard();
     }
   };
 
@@ -676,15 +768,28 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
                     >
                       <div className="flex justify-between items-start mb-2">
                         <h3 className="font-medium text-gray-800 flex-1">{card.title}</h3>
-                        <button
-                          onClick={() => {
-                            console.log('🚨 EMERGENCIA - Click en botón eliminar detectado');
-                            deleteCard(board.id, card.id);
-                          }}
-                          className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                        <div className="flex space-x-1">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openEditCard(board.id, card);
+                            }}
+                            className="text-gray-400 hover:text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Editar tarjeta"
+                          >
+                            <Edit3 size={14} />
+                          </button>
+                          <button
+                            onClick={() => {
+                              console.log('🚨 EMERGENCIA - Click en botón eliminar detectado');
+                              deleteCard(board.id, card.id);
+                            }}
+                            className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Eliminar tarjeta"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       </div>
                       
                       {card.description && (
@@ -725,6 +830,30 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
                         className="w-full mb-2 p-2 border border-gray-300 rounded resize-none"
                         rows="2"
                       />
+                      <div className="mb-3">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Color de fondo
+                        </label>
+                        <div className="flex flex-wrap gap-1">
+                          {[
+                            '#ffffff', '#f0f9ff', '#ecfdf5', '#fefce8', '#fef2f2',
+                            '#f3f4f6', '#dbeafe', '#dcfce7', '#fef3c7', '#fecaca',
+                            '#e5e7eb', '#93c5fd', '#86efac', '#fcd34d', '#f87171',
+                            '#6b7280', '#3b82f6', '#22c55e', '#eab308', '#ef4444'
+                          ].map(color => (
+                            <button
+                              key={color}
+                              type="button"
+                              onClick={() => setNewCardColor(color)}
+                              className={`w-6 h-6 rounded border ${
+                                newCardColor === color ? 'border-gray-400 border-2' : 'border-gray-200'
+                              }`}
+                              style={{ backgroundColor: color }}
+                              title={color}
+                            />
+                          ))}
+                        </div>
+                      </div>
                       <div className="flex space-x-2">
                         <button
                           onClick={(e) => {
@@ -831,6 +960,91 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
 
 
       </div>
+
+      {/* Edit Card Modal */}
+      {editingCard && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">✏️ Editar Tarjeta</h3>
+              <button
+                onClick={closeEditCard}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Título
+                </label>
+                <input
+                  type="text"
+                  value={editCardTitle}
+                  onChange={(e) => setEditCardTitle(e.target.value)}
+                  className="w-full p-2 border border-gray-300 rounded"
+                  placeholder="Título de la tarjeta"
+                  autoFocus
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Descripción
+                </label>
+                <textarea
+                  value={editCardDescription}
+                  onChange={(e) => setEditCardDescription(e.target.value)}
+                  className="w-full p-2 border border-gray-300 rounded h-20 resize-none"
+                  placeholder="Descripción opcional"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Color de fondo
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    '#ffffff', '#f0f9ff', '#ecfdf5', '#fefce8', '#fef2f2',
+                    '#f3f4f6', '#dbeafe', '#dcfce7', '#fef3c7', '#fecaca',
+                    '#e5e7eb', '#93c5fd', '#86efac', '#fcd34d', '#f87171',
+                    '#6b7280', '#3b82f6', '#22c55e', '#eab308', '#ef4444'
+                  ].map(color => (
+                    <button
+                      key={color}
+                      onClick={() => setEditCardColor(color)}
+                      className={`w-8 h-8 rounded border-2 ${
+                        editCardColor === color ? 'border-gray-400' : 'border-gray-200'
+                      }`}
+                      style={{ backgroundColor: color }}
+                      title={color}
+                    />
+                  ))}
+                </div>
+              </div>
+              
+              <div className="flex space-x-2 pt-4">
+                <button
+                  onClick={saveCardEdit}
+                  className="flex-1 bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600"
+                  disabled={!editCardTitle.trim()}
+                >
+                  💾 Guardar
+                </button>
+                <button
+                  onClick={closeEditCard}
+                  className="px-4 py-2 text-gray-500 hover:text-gray-700 border border-gray-300 rounded"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Instructions Modal */}
       {showInstructions && (

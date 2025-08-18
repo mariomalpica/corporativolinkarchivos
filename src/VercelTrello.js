@@ -199,7 +199,6 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
     
     if (!newCardTitle.trim()) {
       console.log('❌ CRISIS - Título vacío, ABORTANDO');
-      alert('DEBUGGING: Título está vacío');
       return;
     }
 
@@ -241,7 +240,6 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
       
       if (!success) {
         console.log('❌ CRISIS - FALLO AL GUARDAR, revirtiendo...');
-        alert('DEBUGGING: Error al guardar en servidor');
         setBoards(boards);
         return;
       }
@@ -678,9 +676,7 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
                               disabled: !newCardTitle.trim(),
                               event: e.type
                             });
-                            alert(`DEBUGGING: Click detectado! Título: "${newCardTitle}" Board: ${board.id}`);
-                            e.preventDefault();
-                            e.stopPropagation();
+                            console.log('🔥 CRISIS - Llamando addCard...');
                             addCard(board.id);
                           }}
                           className="flex-1 bg-blue-500 text-white py-2 px-3 rounded hover:bg-blue-600"

@@ -1,5 +1,5 @@
 import React from 'react';
-import TrelloClone from './TrelloClone';
+import TrelloClone from './TrelloCloneSimple';
 import './index.css';
 
 function App() {

@@ -153,6 +153,68 @@ const TestAPI = () => {
     setLoading(false);
   };
 
+  const restoreDefaultData = async () => {
+    setLoading(true);
+    setTestResult('🔧 Restaurando datos por defecto...');
+    
+    const defaultData = {
+      boards: [
+        {
+          id: 1,
+          title: "📋 Por Hacer",
+          color: "bg-blue-500",
+          cards: [
+            { 
+              id: 1, 
+              title: "¡SISTEMA FUNCIONANDO!", 
+              description: "Backend temporal activo", 
+              backgroundColor: "#e3f2fd",
+              createdBy: "Sistema",
+              assignedTo: "Sistema",
+              createdAt: new Date().toISOString()
+            }
+          ]
+        },
+        {
+          id: 2,
+          title: "🔄 En Progreso", 
+          color: "bg-yellow-500",
+          cards: []
+        },
+        {
+          id: 3,
+          title: "✅ Completado",
+          color: "bg-green-500", 
+          cards: []
+        }
+      ],
+      lastUpdatedBy: 'Sistema-Restaurado'
+    };
+
+    try {
+      const response = await fetch(API_URL, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(defaultData)
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setTestResult(`✅ DATOS RESTAURADOS EXITOSAMENTE!\n\n📋 Por Hacer: 1 tarjeta\n🔄 En Progreso: 0 tarjetas\n✅ Completado: 0 tarjetas\n\nVersión: ${result.data?.version || 'N/A'}`);
+        setData(result.data);
+      } else {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+    } catch (error) {
+      setTestResult(`❌ ERROR RESTAURANDO: ${error.message}`);
+    }
+    
+    setLoading(false);
+  };
+
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <h1 className="text-2xl font-bold mb-4">🔧 Diagnóstico API Vercel</h1>
@@ -180,6 +242,14 @@ const TestAPI = () => {
           className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600 disabled:opacity-50 ml-2"
         >
           🔄 Ciclo Completo Vercel
+        </button>
+        
+        <button
+          onClick={restoreDefaultData}
+          disabled={loading}
+          className="bg-orange-500 text-white px-4 py-2 rounded hover:bg-orange-600 disabled:opacity-50 ml-2"
+        >
+          🔧 Restaurar Datos por Defecto
         </button>
       </div>
 

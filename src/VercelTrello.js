@@ -345,8 +345,13 @@ const VercelTrello = ({ currentUser }) => {
 
   // Función para agregar nuevo tablero/columna
   const addBoard = async () => {
-    if (!newBoardTitle.trim()) return;
+    console.log('🔍 addBoard called with title:', newBoardTitle);
+    if (!newBoardTitle.trim()) {
+      console.log('❌ Empty title, returning');
+      return;
+    }
 
+    console.log('🔍 Setting isPerformingAction to true');
     setIsPerformingAction(true);
     
     try {
@@ -358,12 +363,17 @@ const VercelTrello = ({ currentUser }) => {
       };
 
       const newBoards = [...boards, newBoard];
+      console.log('🔍 New board created:', newBoard);
+      console.log('🔍 New boards array:', newBoards);
 
       // Actualizar estado local inmediatamente
       setBoards(newBoards);
+      console.log('🔍 Local state updated');
       
       // Guardar en servidor
+      console.log('🔍 Saving to server...');
       const success = await saveData(newBoards);
+      console.log('🔍 Save result:', success);
       if (!success) {
         // Si falla, revertir cambio local
         setBoards(boards);
@@ -371,9 +381,10 @@ const VercelTrello = ({ currentUser }) => {
       }
 
       // Registrar en auditoría
+      console.log('🔍 Registrando creación de tablero:', newBoardTitle);
       logCardAction(
         currentUser,
-        AUDIT_ACTIONS.CREATE_CARD, // Usamos CREATE_CARD como acción genérica
+        AUDIT_ACTIONS.CREATE_BOARD,
         `Nuevo tablero: ${newBoardTitle}`,
         'Sistema',
         newBoard.id,
@@ -384,19 +395,28 @@ const VercelTrello = ({ currentUser }) => {
       // Limpiar formulario
       setNewBoardTitle('');
       setShowBoardForm(false);
+      console.log('🔍 Form cleared and hidden');
     } finally {
       // Reactivar auto-refresh después de 2 segundos
+      console.log('🔍 Setting timeout to reset isPerformingAction');
       setTimeout(() => setIsPerformingAction(false), 2000);
     }
   };
 
   // Función para eliminar tablero/columna
   const deleteBoard = async (boardId) => {
+    console.log('🔍 deleteBoard called with boardId:', boardId);
     const boardToDelete = boards.find(b => b.id === boardId);
-    if (!boardToDelete) return;
+    console.log('🔍 Board to delete:', boardToDelete);
+    if (!boardToDelete) {
+      console.log('❌ Board not found');
+      return;
+    }
 
     // Confirmación para evitar eliminaciones accidentales
-    if (!window.confirm(`¿Estás seguro de que quieres eliminar el tablero "${boardToDelete.title}" y todas sus tarjetas?`)) {
+    const confirmed = window.confirm(`¿Estás seguro de que quieres eliminar el tablero "${boardToDelete.title}" y todas sus tarjetas?`);
+    console.log('🔍 User confirmation:', confirmed);
+    if (!confirmed) {
       return;
     }
 
@@ -417,9 +437,10 @@ const VercelTrello = ({ currentUser }) => {
       }
 
       // Registrar en auditoría
+      console.log('🔍 Registrando eliminación de tablero:', boardToDelete.title);
       logCardAction(
         currentUser,
-        AUDIT_ACTIONS.DELETE_CARD, // Usamos DELETE_CARD como acción genérica
+        AUDIT_ACTIONS.DELETE_BOARD,
         `Tablero eliminado: ${boardToDelete.title}`,
         'Sistema',
         boardId,
@@ -483,9 +504,9 @@ const VercelTrello = ({ currentUser }) => {
           <div className="flex justify-between items-start">
             <div>
               <h1 className="text-4xl font-bold text-gray-800 mb-2">
-                🚀 Tablero con Backend Vercel
+                📋 Mi Tablero de Tareas
               </h1>
-              <p className="text-gray-600">Backend propio - Sin APIs externas</p>
+              <p className="text-gray-600">Organiza tus proyectos y tareas</p>
               <div className="flex items-center space-x-4 mt-2">
                 {/* Status de conexión */}
                 <div className={`flex items-center space-x-1 text-sm ${
@@ -494,7 +515,7 @@ const VercelTrello = ({ currentUser }) => {
                 }`}>
                   {connectionStatus === 'connected' ? <Server size={16} /> : <WifiOff size={16} />}
                   <span>
-                    {connectionStatus === 'connected' ? 'Backend conectado' : 
+                    {connectionStatus === 'connected' ? 'Conectado' : 
                      connectionStatus === 'error' ? 'Error de conexión' : 'Conectando...'}
                   </span>
                 </div>
@@ -744,30 +765,6 @@ const VercelTrello = ({ currentUser }) => {
           )}
         </div>
 
-        {/* Stats */}
-        {stats && (
-          <div className="mt-8 bg-white rounded-lg shadow-sm p-4">
-            <h3 className="font-semibold mb-2">🚀 Estadísticas Backend Vercel</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-              <div>
-                <div className="font-medium text-gray-900">{stats.totalBoards}</div>
-                <div className="text-gray-600">Tableros</div>
-              </div>
-              <div>
-                <div className="font-medium text-gray-900">{stats.totalCards}</div>
-                <div className="text-gray-600">Tarjetas</div>
-              </div>
-              <div>
-                <div className="font-medium text-gray-900">v{stats.version}</div>
-                <div className="text-gray-600">Versión</div>
-              </div>
-              <div>
-                <div className="font-medium text-gray-900">{stats.lastUpdatedBy}</div>
-                <div className="text-gray-600">Último usuario</div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Instructions Modal */}

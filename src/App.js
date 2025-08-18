@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import TrelloClone from './TrelloCloneSimple';
+import TestAPI from './TestAPI';
 import AuthModal from './components/AuthModal';
 import UserAdminPanel from './components/UserAdminPanel';
 import AuditPanel from './components/AuditPanel';
@@ -17,6 +18,7 @@ function App() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showUserAdmin, setShowUserAdmin] = useState(false);
   const [showAuditPanel, setShowAuditPanel] = useState(false);
+  const [showTestAPI, setShowTestAPI] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -116,6 +118,16 @@ function App() {
           </div>
           
           <div className="flex items-center space-x-2">
+            {/* Botón de diagnóstico de API */}
+            <button
+              onClick={() => setShowTestAPI(true)}
+              className="flex items-center space-x-1 px-3 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded"
+              title="Diagnosticar API"
+            >
+              <Activity size={16} />
+              <span className="hidden sm:inline">🔧 Test API</span>
+            </button>
+
             {/* Botón de auditoría */}
             <button
               onClick={() => setShowAuditPanel(true)}
@@ -174,6 +186,23 @@ function App() {
           currentUser={currentUser}
           onClose={() => setShowAuditPanel(false)} 
         />
+      )}
+
+      {showTestAPI && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg w-full max-w-4xl h-5/6 overflow-auto">
+            <div className="p-4 border-b flex justify-between items-center">
+              <h2 className="text-xl font-bold">Diagnóstico de API Compartida</h2>
+              <button
+                onClick={() => setShowTestAPI(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </button>
+            </div>
+            <TestAPI />
+          </div>
+        </div>
       )}
     </div>
   );

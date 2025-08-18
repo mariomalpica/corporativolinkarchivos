@@ -1,48 +1,20 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Plus, X, Edit3, Trash2, Calendar, User, Settings, Mail, Clock, Activity, RefreshCw } from 'lucide-react';
 import { logCardAction, logBoardAction, AUDIT_ACTIONS } from './utils/audit';
+import { loadSharedData, saveSharedData, getDefaultData } from './utils/sharedStorage';
 
 const TrelloClone = ({ currentUser }) => {
-  // Datos por defecto usando useMemo para estabilidad
-  const defaultBoards = useMemo(() => [
-    {
-      id: 1,
-      title: "Por Hacer",
-      color: "bg-blue-500",
-      cards: [
-        { id: 1, title: "Diseñar interfaz", description: "Crear mockups de la aplicación", dueDate: "2025-08-20", assignee: "Ana", backgroundColor: "#fef3c7", reminderEmail: "", reminderDateTime: "" },
-        { id: 2, title: "Configurar base de datos", description: "Configurar MongoDB", dueDate: "2025-08-22", assignee: "Carlos", backgroundColor: "#dbeafe", reminderEmail: "", reminderDateTime: "" }
-      ]
-    },
-    {
-      id: 2,
-      title: "En Progreso",
-      color: "bg-yellow-500",
-      cards: [
-        { id: 3, title: "Desarrollar API", description: "Crear endpoints REST", dueDate: "2025-08-25", assignee: "María", backgroundColor: "#fed7d7", reminderEmail: "", reminderDateTime: "" }
-      ]
-    },
-    {
-      id: 3,
-      title: "Completado",
-      color: "bg-green-500",
-      cards: [
-        { id: 4, title: "Investigación inicial", description: "Análisis de requisitos", dueDate: "2025-08-15", assignee: "Pedro", backgroundColor: "#d1fae5", reminderEmail: "", reminderDateTime: "" }
-      ]
-    }
-  ], []);
-
-  const defaultUsers = useMemo(() => ['Ana', 'Carlos', 'María', 'Pedro'], []);
-  const defaultEmailConfig = useMemo(() => ({
-    email: 'corporativolinkarchivos@gmail.com',
-    password: 'M1q2w3e4r5t6y7u8i($'
-  }), []);
-
   // Estados
   const [mounted, setMounted] = useState(false);
-  const [boards, setBoards] = useState(defaultBoards);
-  const [users, setUsers] = useState(defaultUsers);
-  const [emailConfig, setEmailConfig] = useState(defaultEmailConfig);
+  const [loading, setLoading] = useState(true);
+  const [boards, setBoards] = useState([]);
+  const [users, setUsers] = useState(['Ana', 'Carlos', 'María', 'Pedro']);
+  const [emailConfig, setEmailConfig] = useState({
+    email: 'corporativolinkarchivos@gmail.com',
+    password: 'M1q2w3e4r5t6y7u8i($'
+  });
+  const [dataVersion, setDataVersion] = useState(1);
+  const [lastSaved, setLastSaved] = useState(null);
   
   const [showSettings, setShowSettings] = useState(false);
   const [draggedCard, setDraggedCard] = useState(null);
@@ -86,65 +58,82 @@ const TrelloClone = ({ currentUser }) => {
     return fallback;
   }, []);
 
-  // Efecto de montaje y carga inicial
+  // Efecto de montaje y carga inicial desde servidor compartido
   useEffect(() => {
-    setMounted(true);
-    
-    // Cargar datos GLOBALES (compartidos entre todos los usuarios)
-    const savedBoards = loadData('trello-global-boards', defaultBoards);
-    const savedUsers = loadData('trello-global-users', defaultUsers);
-    const savedEmailConfig = loadData('trello-global-emailConfig', defaultEmailConfig);
-
-    setBoards(savedBoards);
-    setUsers(savedUsers);
-    setEmailConfig(savedEmailConfig);
-  }, [loadData, defaultBoards, defaultUsers, defaultEmailConfig]);
-
-  // Efectos de guardado GLOBALES (compartidos entre todos los usuarios)
-  useEffect(() => {
-    if (mounted) saveData('trello-global-boards', boards);
-  }, [boards, mounted, saveData]);
-
-  useEffect(() => {
-    if (mounted) saveData('trello-global-users', users);
-  }, [users, mounted, saveData]);
-
-  useEffect(() => {
-    if (mounted) saveData('trello-global-emailConfig', emailConfig);
-  }, [emailConfig, mounted, saveData]);
-
-  // Efecto para detectar cambios de otros usuarios (actualización automática)
-  useEffect(() => {
-    if (!mounted) return;
-
-    const handleStorageChange = (e) => {
-      // Solo actualizar si el cambio fue en los tableros globales
-      if (e.key === 'trello-global-boards' && e.newValue) {
-        try {
-          const updatedBoards = JSON.parse(e.newValue);
-          setBoards(updatedBoards);
-        } catch (error) {
-          console.warn('Error al actualizar tableros desde otro usuario:', error);
+    const initializeData = async () => {
+      setMounted(true);
+      setLoading(true);
+      
+      try {
+        // Cargar datos del servidor compartido
+        const sharedData = await loadSharedData();
+        
+        if (sharedData && sharedData.boards) {
+          setBoards(sharedData.boards);
+          setUsers(sharedData.users || ['Ana', 'Carlos', 'María', 'Pedro']);
+          setDataVersion(sharedData.version || 1);
+          console.log('Datos cargados del servidor compartido');
+        } else {
+          // Si no hay datos, inicializar con datos por defecto
+          const defaultData = getDefaultData();
+          setBoards(defaultData.boards);
+          setUsers(defaultData.users);
+          setDataVersion(defaultData.version);
         }
+      } catch (error) {
+        console.warn('Error loading shared data, using defaults:', error);
+        const defaultData = getDefaultData();
+        setBoards(defaultData.boards);
+        setUsers(defaultData.users);
       }
+      
+      setLoading(false);
     };
 
-    // Escuchar cambios en localStorage desde otras pestañas/usuarios
-    window.addEventListener('storage', handleStorageChange);
+    initializeData();
+  }, []);
 
-    // Cleanup
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
-  }, [mounted]);
+  // Función para guardar datos en el servidor compartido
+  const saveToSharedStorage = useCallback(async (newBoards, newUsers = users) => {
+    if (!mounted) return;
+    
+    try {
+      const dataToSave = {
+        boards: newBoards,
+        users: newUsers,
+        lastUpdated: new Date().toISOString(),
+        lastUpdatedBy: currentUser?.username || 'Usuario',
+        version: dataVersion + 1
+      };
+      
+      const success = await saveSharedData(dataToSave);
+      if (success) {
+        setDataVersion(prev => prev + 1);
+        setLastSaved(new Date().toLocaleTimeString());
+        console.log('Datos guardados en servidor compartido');
+      }
+    } catch (error) {
+      console.warn('Error saving to shared storage:', error);
+    }
+  }, [mounted, currentUser, users, dataVersion]);
 
-  // Función para forzar actualización manual (refresh)
-  const refreshData = useCallback(() => {
-    const savedBoards = loadData('trello-global-boards', defaultBoards);
-    const savedUsers = loadData('trello-global-users', defaultUsers);
-    setBoards(savedBoards);
-    setUsers(savedUsers);
-  }, [loadData, defaultBoards, defaultUsers]);
+  // Función para actualizar datos desde servidor compartido
+  const refreshData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const sharedData = await loadSharedData();
+      
+      if (sharedData && sharedData.boards) {
+        setBoards(sharedData.boards);
+        setUsers(sharedData.users || users);
+        setDataVersion(sharedData.version || 1);
+        console.log('Datos actualizados desde servidor compartido');
+      }
+    } catch (error) {
+      console.warn('Error refreshing data:', error);
+    }
+    setLoading(false);
+  }, [users]);
 
   // Colores predefinidos para las tareas
   const cardColors = [
@@ -180,7 +169,7 @@ const TrelloClone = ({ currentUser }) => {
     setDraggedOverBoard(null);
   };
 
-  const handleDrop = (e, targetBoardId) => {
+  const handleDrop = async (e, targetBoardId) => {
     e.preventDefault();
     setDraggedOverBoard(null);
 
@@ -188,24 +177,26 @@ const TrelloClone = ({ currentUser }) => {
       const fromBoard = boards.find(b => b.id === draggedCard.fromBoardId);
       const toBoard = boards.find(b => b.id === targetBoardId);
       
-      setBoards(prevBoards => {
-        const newBoards = prevBoards.map(board => {
-          if (board.id === draggedCard.fromBoardId) {
-            return {
-              ...board,
-              cards: board.cards.filter(card => card.id !== draggedCard.card.id)
-            };
-          }
-          if (board.id === targetBoardId) {
-            return {
-              ...board,
-              cards: [...board.cards, draggedCard.card]
-            };
-          }
-          return board;
-        });
-        return newBoards;
+      const newBoards = boards.map(board => {
+        if (board.id === draggedCard.fromBoardId) {
+          return {
+            ...board,
+            cards: board.cards.filter(card => card.id !== draggedCard.card.id)
+          };
+        }
+        if (board.id === targetBoardId) {
+          return {
+            ...board,
+            cards: [...board.cards, draggedCard.card]
+          };
+        }
+        return board;
       });
+
+      setBoards(newBoards);
+      
+      // Guardar en servidor compartido
+      await saveToSharedStorage(newBoards);
 
       // Registrar en auditoría
       logCardAction(
@@ -225,7 +216,7 @@ const TrelloClone = ({ currentUser }) => {
   };
 
   // Agregar nueva tarjeta
-  const addCard = (boardId) => {
+  const addCard = async (boardId) => {
     if (newCardTitle.trim()) {
       const newCard = {
         id: Date.now(),
@@ -238,13 +229,16 @@ const TrelloClone = ({ currentUser }) => {
         reminderDateTime: newCardReminderDateTime
       };
 
-      setBoards(prevBoards =>
-        prevBoards.map(board =>
-          board.id === boardId
-            ? { ...board, cards: [...board.cards, newCard] }
-            : board
-        )
+      const newBoards = boards.map(board =>
+        board.id === boardId
+          ? { ...board, cards: [...board.cards, newCard] }
+          : board
       );
+
+      setBoards(newBoards);
+      
+      // Guardar en servidor compartido
+      await saveToSharedStorage(newBoards);
 
       const boardName = boards.find(b => b.id === boardId)?.title || 'Tablero';
       
@@ -302,17 +296,20 @@ const TrelloClone = ({ currentUser }) => {
   };
 
   // Eliminar tarjeta
-  const deleteCard = (boardId, cardId) => {
+  const deleteCard = async (boardId, cardId) => {
     const board = boards.find(b => b.id === boardId);
     const card = board?.cards.find(c => c.id === cardId);
     
-    setBoards(prevBoards =>
-      prevBoards.map(board =>
-        board.id === boardId
-          ? { ...board, cards: board.cards.filter(card => card.id !== cardId) }
-          : board
-      )
+    const newBoards = boards.map(board =>
+      board.id === boardId
+        ? { ...board, cards: board.cards.filter(card => card.id !== cardId) }
+        : board
     );
+    
+    setBoards(newBoards);
+    
+    // Guardar en servidor compartido
+    await saveToSharedStorage(newBoards);
     
     if (card && board) {
       // Registrar en auditoría
@@ -410,7 +407,15 @@ const TrelloClone = ({ currentUser }) => {
             <div>
               <h1 className="text-4xl font-bold text-gray-800 mb-2">Mi Tablero de Tareas</h1>
               <p className="text-gray-600">Organiza tus proyectos de manera eficiente</p>
-              <p className="text-sm text-green-600 mt-1">✅ Tablero compartido - Todos los usuarios ven el mismo contenido</p>
+              <div className="flex items-center space-x-4 mt-1">
+                <p className="text-sm text-green-600">✅ Tablero compartido via servidor externo</p>
+                {lastSaved && (
+                  <p className="text-xs text-gray-500">Última sincronización: {lastSaved}</p>
+                )}
+                {loading && (
+                  <p className="text-xs text-blue-600">🔄 Sincronizando...</p>
+                )}
+              </div>
             </div>
             <div className="flex items-center space-x-4">
               {/* Botón de actualizar */}

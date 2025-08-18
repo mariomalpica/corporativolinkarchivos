@@ -24,6 +24,8 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
   const [newBoardColor, setNewBoardColor] = useState('bg-blue-500');
   const [draggedCard, setDraggedCard] = useState(null);
   const [draggedOverBoard, setDraggedOverBoard] = useState(null);
+  const [draggedOverCard, setDraggedOverCard] = useState(null);
+  const [dropPosition, setDropPosition] = useState(null); // 'before' | 'after'
 
   // API endpoint - será nuestra propia API en Vercel
   const API_URL = '/api/trello';
@@ -285,31 +287,79 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
 
   const handleDragLeave = () => {
     setDraggedOverBoard(null);
+    setDraggedOverCard(null);
+    setDropPosition(null);
+  };
+
+  const handleCardDragOver = (e, cardId, boardId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!draggedCard || draggedCard.card.id === cardId) return;
+    
+    // Calcular si el drop debe ser antes o después
+    const rect = e.currentTarget.getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    const position = e.clientY < midY ? 'before' : 'after';
+    
+    setDraggedOverCard(cardId);
+    setDraggedOverBoard(boardId);
+    setDropPosition(position);
+  };
+
+  const handleCardDragLeave = (e) => {
+    // Solo limpiar si realmente salimos del elemento
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      setDraggedOverCard(null);
+      setDropPosition(null);
+    }
+  };
+
+  // Función auxiliar para insertar tarjeta en posición específica
+  const insertCardAtPosition = (cards, card, targetCardId, position) => {
+    const targetIndex = cards.findIndex(c => c.id === targetCardId);
+    if (targetIndex === -1) return [...cards, card];
+    
+    const newCards = [...cards];
+    const insertIndex = position === 'before' ? targetIndex : targetIndex + 1;
+    newCards.splice(insertIndex, 0, card);
+    
+    return newCards;
   };
 
   const handleDrop = async (e, targetBoardId) => {
     e.preventDefault();
     setDraggedOverBoard(null);
 
-    if (draggedCard && draggedCard.fromBoardId !== targetBoardId) {
-      setIsPerformingAction(true);
-      
-      try {
-        const fromBoard = boards.find(b => b.id === draggedCard.fromBoardId);
-        const toBoard = boards.find(b => b.id === targetBoardId);
+    if (!draggedCard) {
+      setDraggedOverCard(null);
+      setDropPosition(null);
+      return;
+    }
 
+    setIsPerformingAction(true);
+    
+    try {
+      const fromBoard = boards.find(b => b.id === draggedCard.fromBoardId);
+      const toBoard = boards.find(b => b.id === targetBoardId);
+      
+      // Caso 1: Movimiento dentro del mismo tablero (reordenamiento)
+      if (draggedCard.fromBoardId === targetBoardId) {
+        console.log('🔄 Reordenando dentro del mismo tablero');
+        
         const newBoards = boards.map(board => {
-          if (board.id === draggedCard.fromBoardId) {
-            return {
-              ...board,
-              cards: board.cards.filter(c => c.id !== draggedCard.card.id)
-            };
-          }
           if (board.id === targetBoardId) {
-            return {
-              ...board,
-              cards: [...board.cards, draggedCard.card]
-            };
+            let newCards = board.cards.filter(c => c.id !== draggedCard.card.id);
+            
+            if (draggedOverCard && dropPosition) {
+              // Insertar en posición específica
+              newCards = insertCardAtPosition(newCards, draggedCard.card, draggedOverCard, dropPosition);
+            } else {
+              // Si no hay posición específica, agregar al final
+              newCards = [...newCards, draggedCard.card];
+            }
+            
+            return { ...board, cards: newCards };
           }
           return board;
         });
@@ -320,9 +370,7 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
         // Guardar en servidor
         const success = await saveData(newBoards);
         if (!success) {
-          // Revertir si falla
           setBoards(boards);
-          setDraggedCard(null);
           return;
         }
 
@@ -336,15 +384,77 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
           targetBoardId,
           {
             fromBoard: fromBoard?.title,
-            fromBoardId: draggedCard.fromBoardId
+            fromBoardId: draggedCard.fromBoardId,
+            action: 'reorder'
           }
         );
-      } finally {
-        // Reactivar auto-refresh después de 2 segundos
-        setTimeout(() => setIsPerformingAction(false), 2000);
+        
+      } 
+      // Caso 2: Movimiento entre tableros diferentes
+      else {
+        console.log('🔄 Moviendo entre tableros diferentes');
+        
+        const newBoards = boards.map(board => {
+          if (board.id === draggedCard.fromBoardId) {
+            return {
+              ...board,
+              cards: board.cards.filter(c => c.id !== draggedCard.card.id)
+            };
+          }
+          if (board.id === targetBoardId) {
+            let newCards = board.cards;
+            
+            if (draggedOverCard && dropPosition) {
+              // Insertar en posición específica
+              newCards = insertCardAtPosition(board.cards, draggedCard.card, draggedOverCard, dropPosition);
+            } else {
+              // Agregar al final
+              newCards = [...board.cards, draggedCard.card];
+            }
+            
+            return { ...board, cards: newCards };
+          }
+          return board;
+        });
+
+        // Actualizar estado local
+        setBoards(newBoards);
+        
+        // Guardar en servidor
+        const success = await saveData(newBoards);
+        if (!success) {
+          setBoards(boards);
+          return;
+        }
+
+        // Registrar en auditoría
+        logCardAction(
+          currentUser,
+          AUDIT_ACTIONS.MOVE_CARD,
+          draggedCard.card.title,
+          toBoard?.title || 'Tablero',
+          draggedCard.card.id,
+          targetBoardId,
+          {
+            fromBoard: fromBoard?.title,
+            fromBoardId: draggedCard.fromBoardId,
+            action: 'move'
+          }
+        );
       }
+      
+    } catch (error) {
+      console.error('❌ Error en handleDrop:', error);
+      setBoards(boards);
+    } finally {
+      // Limpiar estados
+      setDraggedCard(null);
+      setDraggedOverCard(null);
+      setDropPosition(null);
+      
+      // Reactivar auto-refresh después de 2 segundos
+      setTimeout(() => setIsPerformingAction(false), 2000);
     }
-    setDraggedCard(null);
   };
 
   // Función para agregar nuevo tablero/columna
@@ -547,13 +657,26 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
               <div className="bg-white p-4 min-h-80 max-h-80 overflow-y-auto">
                 <div className="space-y-3">
                   {board.cards.map(card => (
-                    <div
-                      key={card.id}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, card, board.id)}
-                      className="rounded-lg p-3 border border-gray-200 hover:shadow-md transition-shadow cursor-move group"
-                      style={{ backgroundColor: card.backgroundColor || '#f9fafb' }}
-                    >
+                    <div key={card.id} className="relative">
+                      {/* Indicador de drop ANTES de la tarjeta */}
+                      {draggedOverCard === card.id && dropPosition === 'before' && (
+                        <div className="h-0.5 bg-blue-500 mb-2 rounded-full opacity-80 animate-pulse" />
+                      )}
+                      
+                      <div
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, card, board.id)}
+                        onDragOver={(e) => handleCardDragOver(e, card.id, board.id)}
+                        onDragLeave={handleCardDragLeave}
+                        className={`rounded-lg p-3 border transition-all cursor-move group relative ${
+                          draggedCard?.card.id === card.id 
+                            ? 'opacity-50 border-blue-300 shadow-lg transform scale-105' 
+                            : draggedOverCard === card.id 
+                              ? 'border-blue-400 shadow-md bg-blue-50' 
+                              : 'border-gray-200 hover:shadow-md'
+                        }`}
+                        style={{ backgroundColor: draggedOverCard === card.id ? '#eff6ff' : (card.backgroundColor || '#f9fafb') }}
+                      >
                       <div className="flex justify-between items-start mb-2">
                         <h3 className="font-medium text-gray-800 flex-1">{card.title}</h3>
                         <button
@@ -572,6 +695,12 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
                         <div className="text-xs text-gray-500">
                           Por: {card.createdBy}
                         </div>
+                      )}
+                      </div>
+                      
+                      {/* Indicador de drop DESPUÉS de la tarjeta */}
+                      {draggedOverCard === card.id && dropPosition === 'after' && (
+                        <div className="h-0.5 bg-blue-500 mt-2 rounded-full opacity-80 animate-pulse" />
                       )}
                     </div>
                   ))}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import SimpleTrello from './SimpleTrello';
+import JSONBinTrello from './JSONBinTrello';
 import TestAPI from './TestAPI';
 import AuthModal from './components/AuthModal';
 import UserAdminPanel from './components/UserAdminPanel';
@@ -164,7 +164,7 @@ function App() {
       </div>
 
       {/* Componente principal */}
-      <SimpleTrello currentUser={currentUser} />
+      <JSONBinTrello currentUser={currentUser} />
 
       {/* Modales */}
       {showAuthModal && (

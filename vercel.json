@@ -8,8 +8,11 @@
     "EMAIL_USER": "@email_user",
     "EMAIL_PASS": "@email_pass"
   },
+  "buildCommand": "npm run build",
+  "outputDirectory": "build",
   "build": {
     "env": {
+      "NODE_ENV": "production",
       "REACT_APP_API_URL": "https://corporativolinkarchivos.vercel.app/api"
     }
   }

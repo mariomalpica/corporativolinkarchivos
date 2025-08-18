@@ -21,6 +21,7 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
   const [newCardTitle, setNewCardTitle] = useState('');
   const [newCardDescription, setNewCardDescription] = useState('');
   const [newCardColor, setNewCardColor] = useState('#ffffff');
+  const [newCardDueDate, setNewCardDueDate] = useState('');
   const [showBoardForm, setShowBoardForm] = useState(false);
   const [newBoardTitle, setNewBoardTitle] = useState('');
   const [newBoardColor, setNewBoardColor] = useState('bg-blue-500');
@@ -32,9 +33,37 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
   const [editCardTitle, setEditCardTitle] = useState('');
   const [editCardDescription, setEditCardDescription] = useState('');
   const [editCardColor, setEditCardColor] = useState('#ffffff');
+  const [editCardDueDate, setEditCardDueDate] = useState('');
 
   // API endpoint - será nuestra propia API en Vercel
   const API_URL = '/api/trello';
+
+  // Función utilitaria para verificar si una tarjeta está vencida
+  const isCardOverdue = (dueDate) => {
+    if (!dueDate) return false;
+    const due = new Date(dueDate);
+    const now = new Date();
+    return due < now;
+  };
+
+  // Función utilitaria para formatear fecha para display
+  const formatDueDate = (dueDate) => {
+    if (!dueDate) return null;
+    const due = new Date(dueDate);
+    const now = new Date();
+    const diffTime = due - now;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 0) {
+      return `Vencida hace ${Math.abs(diffDays)} día(s)`;
+    } else if (diffDays === 0) {
+      return `Vence hoy a las ${due.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
+    } else if (diffDays === 1) {
+      return `Vence mañana`;
+    } else {
+      return `Vence en ${diffDays} día(s)`;
+    }
+  };
 
   // Función para cargar datos desde nuestro backend
   const loadData = useCallback(async () => {
@@ -219,6 +248,7 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
         title: newCardTitle.trim(),
         description: newCardDescription.trim(),
         backgroundColor: newCardColor,
+        dueDate: newCardDueDate || null,
         createdBy: currentUser?.username || 'Usuario',
         assignedTo: currentUser?.username || 'Usuario', // Asignar al creador por defecto
         createdAt: new Date().toISOString()
@@ -268,6 +298,7 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
       setNewCardTitle('');
       setNewCardDescription('');
       setNewCardColor('#ffffff');
+      setNewCardDueDate('');
       setShowCardForm(null);
     } finally {
       // Reactivar auto-refresh después de 2 segundos
@@ -331,6 +362,7 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
     setEditCardTitle(card.title);
     setEditCardDescription(card.description || '');
     setEditCardColor(card.backgroundColor || '#ffffff');
+    setEditCardDueDate(card.dueDate || '');
   };
 
   // Función para cerrar modal de edición
@@ -339,6 +371,7 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
     setEditCardTitle('');
     setEditCardDescription('');
     setEditCardColor('#ffffff');
+    setEditCardDueDate('');
   };
 
   // Función para actualizar tarjeta
@@ -399,7 +432,8 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
     const updates = {
       title: editCardTitle,
       description: editCardDescription,
-      backgroundColor: editCardColor
+      backgroundColor: editCardColor,
+      dueDate: editCardDueDate || null
     };
 
     const success = await updateCard(editingCard.boardId, editingCard.cardId, updates);
@@ -764,7 +798,11 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
                       draggable
                       onDragStart={(e) => handleDragStart(e, card, board.id)}
                       className="rounded-lg p-3 border border-gray-200 hover:shadow-md transition-shadow cursor-move group"
-                      style={{ backgroundColor: card.backgroundColor || '#f9fafb' }}
+                      style={{ 
+                        backgroundColor: isCardOverdue(card.dueDate) 
+                          ? '#fecaca' // Rojo claro para tarjetas vencidas
+                          : card.backgroundColor || '#f9fafb' 
+                      }}
                     >
                       <div className="flex justify-between items-start mb-2">
                         <h3 className="font-medium text-gray-800 flex-1">{card.title}</h3>
@@ -794,6 +832,16 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
                       
                       {card.description && (
                         <p className="text-gray-600 text-sm mb-2">{card.description}</p>
+                      )}
+
+                      {card.dueDate && (
+                        <div className={`text-xs px-2 py-1 rounded mb-2 ${
+                          isCardOverdue(card.dueDate) 
+                            ? 'bg-red-100 text-red-800 border border-red-200' 
+                            : 'bg-blue-100 text-blue-800 border border-blue-200'
+                        }`}>
+                          📅 {formatDueDate(card.dueDate)}
+                        </div>
                       )}
 
                       <div className="flex justify-between items-center">
@@ -830,6 +878,18 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
                         className="w-full mb-2 p-2 border border-gray-300 rounded resize-none"
                         rows="2"
                       />
+                      <div className="mb-3">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Fecha y hora de entrega (opcional)
+                        </label>
+                        <input
+                          type="datetime-local"
+                          value={newCardDueDate}
+                          onChange={(e) => setNewCardDueDate(e.target.value)}
+                          className="w-full p-2 border border-gray-300 rounded text-sm"
+                          min={new Date().toISOString().slice(0, 16)}
+                        />
+                      </div>
                       <div className="mb-3">
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                           Color de fondo
@@ -999,6 +1059,19 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
                   onChange={(e) => setEditCardDescription(e.target.value)}
                   className="w-full p-2 border border-gray-300 rounded h-20 resize-none"
                   placeholder="Descripción opcional"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Fecha y hora de entrega (opcional)
+                </label>
+                <input
+                  type="datetime-local"
+                  value={editCardDueDate}
+                  onChange={(e) => setEditCardDueDate(e.target.value)}
+                  className="w-full p-2 border border-gray-300 rounded text-sm"
+                  min={new Date().toISOString().slice(0, 16)}
                 />
               </div>
               

@@ -163,10 +163,14 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel }) => {
 
   // Función para actualizar manualmente
   const handleRefresh = async () => {
+    console.log('🔍 handleRefresh called - manual refresh initiated');
     setError(null);
     try {
+      console.log('🔍 Calling loadData...');
       await loadData();
+      console.log('✅ Manual refresh completed successfully');
     } catch (error) {
+      console.log('❌ Manual refresh failed:', error);
       // Error ya manejado en loadData
     }
   };
@@ -684,100 +688,143 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel }) => {
           )}
         </div>
 
-        {/* Controls moved to bottom */}
-        <div className="mt-8 bg-white rounded-lg shadow-sm p-4">
-          <div className="flex flex-wrap justify-between items-center gap-4">
-            <div className="flex items-center space-x-4">
-              {/* Status de conexión */}
-              <div className={`flex items-center space-x-1 text-sm ${
-                connectionStatus === 'connected' ? 'text-green-600' : 
-                connectionStatus === 'error' ? 'text-red-600' : 'text-yellow-600'
-              }`}>
-                {connectionStatus === 'connected' ? <Server size={16} /> : <WifiOff size={16} />}
-                <span>
-                  {connectionStatus === 'connected' ? 'Conectado' : 
-                   connectionStatus === 'error' ? 'Error de conexión' : 'Conectando...'}
-                </span>
+        {/* Control Panel - Redesigned */}
+        <div className="mt-8 bg-gradient-to-r from-slate-50 to-gray-50 rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+          {/* Header del panel */}
+          <div className="bg-white border-b border-gray-200 px-6 py-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-gray-700 flex items-center space-x-2">
+                <div className={`w-2 h-2 rounded-full ${
+                  connectionStatus === 'connected' ? 'bg-green-500' : 
+                  connectionStatus === 'error' ? 'bg-red-500' : 'bg-yellow-500'
+                }`}></div>
+                <span>Panel de Control</span>
+              </h3>
+              <div className="text-xs text-gray-500">
+                {connectionStatus === 'connected' ? 'Sistema operativo' : 
+                 connectionStatus === 'error' ? 'Error de conexión' : 'Conectando...'}
               </div>
-              
-              <div className="text-sm text-blue-600">
-                ✅ Versión: {currentVersion} | Por: {stats?.lastUpdatedBy || 'Sistema'}
-              </div>
-              
-              <div className={`text-xs ${isPerformingAction ? 'text-orange-600' : 'text-gray-500'}`}>
-                🔄 Auto-refresh: {isPerformingAction ? 'PAUSADO' : autoRefresh ? '3s' : 'OFF'}
-              </div>
-              
-              {lastSaved && (
-                <div className="text-xs text-gray-500">
-                  Guardado: {lastSaved}
+            </div>
+          </div>
+          
+          {/* Contenido del panel */}
+          <div className="p-6">
+            {/* Información del sistema */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="bg-white rounded-lg p-4 border border-gray-100 shadow-sm">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <Server size={18} className="text-blue-600" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-gray-700">Versión</div>
+                    <div className="text-lg font-bold text-gray-900">v{currentVersion}</div>
+                    <div className="text-xs text-gray-500">Por {stats?.lastUpdatedBy || 'Sistema'}</div>
+                  </div>
                 </div>
-              )}
+              </div>
+              
+              <div className="bg-white rounded-lg p-4 border border-gray-100 shadow-sm">
+                <div className="flex items-center space-x-3">
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                    isPerformingAction ? 'bg-orange-100' : autoRefresh ? 'bg-green-100' : 'bg-gray-100'
+                  }`}>
+                    <RefreshCw size={18} className={`${
+                      isPerformingAction ? 'text-orange-600' : autoRefresh ? 'text-green-600' : 'text-gray-600'
+                    }`} />
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-gray-700">Auto-sync</div>
+                    <div className={`text-lg font-bold ${
+                      isPerformingAction ? 'text-orange-600' : autoRefresh ? 'text-green-600' : 'text-gray-600'
+                    }`}>
+                      {isPerformingAction ? 'PAUSADO' : autoRefresh ? 'ACTIVO' : 'OFF'}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {isPerformingAction ? 'Procesando...' : autoRefresh ? 'Cada 3 segundos' : 'Manual'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-white rounded-lg p-4 border border-gray-100 shadow-sm">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                    <span className="text-purple-600 text-lg">👤</span>
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-gray-700">Usuario</div>
+                    <div className="text-lg font-bold text-gray-900 truncate max-w-24">
+                      {currentUser?.username || 'Usuario'}
+                    </div>
+                    {lastSaved && (
+                      <div className="text-xs text-gray-500">Último: {lastSaved}</div>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
             
-            <div className="flex items-center space-x-2">
-              {/* Toggle auto-refresh */}
-              <button
-                onClick={() => setAutoRefresh(!autoRefresh)}
-                className={`px-3 py-2 text-sm rounded-lg ${
-                  autoRefresh 
-                    ? 'bg-green-100 text-green-700 hover:bg-green-200' 
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-                title="Activar/Desactivar actualización automática"
-              >
-                🔄 Auto
-              </button>
-
-              {/* Botón de instrucciones */}
-              <button
-                onClick={() => setShowInstructions(true)}
-                className="flex items-center space-x-1 px-3 py-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg"
-                title="Ver instrucciones"
-              >
-                <Info size={16} />
-                <span className="hidden sm:inline">Info</span>
-              </button>
-
-              {/* Botón de actualizar */}
-              <button
-                onClick={handleRefresh}
-                className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-                title="Actualizar ahora"
-              >
-                <RefreshCw size={16} />
-                <span>Actualizar</span>
-              </button>
-              
-              {/* Botón de diagnóstico de API */}
-              {onShowTestAPI && (
+            {/* Controles de acción */}
+            <div className="border-t border-gray-200 pt-4">
+              <div className="flex flex-wrap gap-3 justify-center">
+                {/* Botón principal de actualizar */}
                 <button
-                  onClick={onShowTestAPI}
-                  className="flex items-center space-x-1 px-3 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded"
-                  title="Diagnosticar API"
+                  onClick={handleRefresh}
+                  className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 shadow-md transition-all duration-200 transform hover:scale-105"
+                  title="Actualizar datos ahora"
                 >
-                  <RefreshCw size={16} />
-                  <span className="hidden sm:inline">🔧 Test API</span>
+                  <RefreshCw size={18} />
+                  <span className="font-medium">Actualizar</span>
                 </button>
-              )}
-
-              {/* Botón de auditoría */}
-              {onShowAuditPanel && (
+                
+                {/* Toggle auto-refresh */}
                 <button
-                  onClick={onShowAuditPanel}
-                  className="flex items-center space-x-1 px-3 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded"
-                  title="Ver auditoría"
+                  onClick={() => setAutoRefresh(!autoRefresh)}
+                  className={`flex items-center space-x-2 px-4 py-3 rounded-lg font-medium transition-all duration-200 ${
+                    autoRefresh 
+                      ? 'bg-gradient-to-r from-green-100 to-green-200 text-green-700 hover:from-green-200 hover:to-green-300' 
+                      : 'bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 hover:from-gray-200 hover:to-gray-300'
+                  }`}
+                  title="Activar/Desactivar actualización automática"
                 >
-                  <RefreshCw size={16} />
-                  <span className="hidden sm:inline">Auditoría</span>
+                  <div className={`w-2 h-2 rounded-full ${autoRefresh ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+                  <span>Auto-sync</span>
                 </button>
-              )}
 
-              {/* Info del usuario */}
-              <div className="bg-white px-3 py-2 rounded-lg shadow-sm border">
-                <span className="text-sm font-medium text-gray-700">
-                  👤 {currentUser?.username || 'Usuario'}
-                </span>
+                {/* Botón de instrucciones */}
+                <button
+                  onClick={() => setShowInstructions(true)}
+                  className="flex items-center space-x-2 px-4 py-3 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-all duration-200"
+                  title="Ver instrucciones"
+                >
+                  <Info size={18} />
+                  <span className="font-medium hidden sm:inline">Ayuda</span>
+                </button>
+
+                {/* Botón de diagnóstico de API */}
+                {onShowTestAPI && (
+                  <button
+                    onClick={onShowTestAPI}
+                    className="flex items-center space-x-2 px-4 py-3 text-amber-600 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-all duration-200"
+                    title="Diagnosticar API"
+                  >
+                    <RefreshCw size={18} />
+                    <span className="font-medium hidden sm:inline">Test API</span>
+                  </button>
+                )}
+
+                {/* Botón de auditoría */}
+                {onShowAuditPanel && (
+                  <button
+                    onClick={onShowAuditPanel}
+                    className="flex items-center space-x-2 px-4 py-3 text-purple-600 hover:text-purple-700 hover:bg-purple-50 rounded-lg transition-all duration-200"
+                    title="Ver auditoría"
+                  >
+                    <RefreshCw size={18} />
+                    <span className="font-medium hidden sm:inline">Auditoría</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>

@@ -1,12 +1,1 @@
-{
-  "functions": {
-    "api/*.js": {
-      "runtime": "nodejs18.x"
-    }
-  },
-  "env": {
-    "EMAIL_USER": "@email_user",
-    "EMAIL_PASS": "@email_pass",
-    "REACT_APP_API_URL": "https://corporativolinkarchivos.vercel.app/api"
-  }
-}
+{}

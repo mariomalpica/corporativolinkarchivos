@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import TrelloClone from './TrelloTest';
+import TrelloClone from './TrelloCloneSimple';
 import AuthModal from './components/AuthModal';
 import UserAdminPanel from './components/UserAdminPanel';
 import AuditPanel from './components/AuditPanel';

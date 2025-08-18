@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Plus, X, Edit3, Trash2, Calendar, User, Settings, Mail, Clock, Activity } from 'lucide-react';
+import { Plus, X, Edit3, Trash2, Calendar, User, Settings, Mail, Clock, Activity, RefreshCw } from 'lucide-react';
 import { logCardAction, logBoardAction, AUDIT_ACTIONS } from './utils/audit';
 
 const TrelloClone = ({ currentUser }) => {
@@ -90,28 +90,61 @@ const TrelloClone = ({ currentUser }) => {
   useEffect(() => {
     setMounted(true);
     
-    // Cargar datos guardados
-    const savedBoards = loadData('trello-boards', defaultBoards);
-    const savedUsers = loadData('trello-users', defaultUsers);
-    const savedEmailConfig = loadData('trello-emailConfig', defaultEmailConfig);
+    // Cargar datos GLOBALES (compartidos entre todos los usuarios)
+    const savedBoards = loadData('trello-global-boards', defaultBoards);
+    const savedUsers = loadData('trello-global-users', defaultUsers);
+    const savedEmailConfig = loadData('trello-global-emailConfig', defaultEmailConfig);
 
     setBoards(savedBoards);
     setUsers(savedUsers);
     setEmailConfig(savedEmailConfig);
   }, [loadData, defaultBoards, defaultUsers, defaultEmailConfig]);
 
-  // Efectos de guardado
+  // Efectos de guardado GLOBALES (compartidos entre todos los usuarios)
   useEffect(() => {
-    if (mounted) saveData('trello-boards', boards);
+    if (mounted) saveData('trello-global-boards', boards);
   }, [boards, mounted, saveData]);
 
   useEffect(() => {
-    if (mounted) saveData('trello-users', users);
+    if (mounted) saveData('trello-global-users', users);
   }, [users, mounted, saveData]);
 
   useEffect(() => {
-    if (mounted) saveData('trello-emailConfig', emailConfig);
+    if (mounted) saveData('trello-global-emailConfig', emailConfig);
   }, [emailConfig, mounted, saveData]);
+
+  // Efecto para detectar cambios de otros usuarios (actualización automática)
+  useEffect(() => {
+    if (!mounted) return;
+
+    const handleStorageChange = (e) => {
+      // Solo actualizar si el cambio fue en los tableros globales
+      if (e.key === 'trello-global-boards' && e.newValue) {
+        try {
+          const updatedBoards = JSON.parse(e.newValue);
+          setBoards(updatedBoards);
+        } catch (error) {
+          console.warn('Error al actualizar tableros desde otro usuario:', error);
+        }
+      }
+    };
+
+    // Escuchar cambios en localStorage desde otras pestañas/usuarios
+    window.addEventListener('storage', handleStorageChange);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [mounted]);
+
+  // Función para forzar actualización manual (refresh)
+  const refreshData = useCallback(() => {
+    const savedBoards = loadData('trello-global-boards', defaultBoards);
+    const savedUsers = loadData('trello-global-users', defaultUsers);
+    setBoards(savedBoards);
+    setUsers(savedUsers);
+  }, [loadData, defaultBoards, defaultUsers]);
 
   // Colores predefinidos para las tareas
   const cardColors = [
@@ -377,9 +410,19 @@ const TrelloClone = ({ currentUser }) => {
             <div>
               <h1 className="text-4xl font-bold text-gray-800 mb-2">Mi Tablero de Tareas</h1>
               <p className="text-gray-600">Organiza tus proyectos de manera eficiente</p>
-              <p className="text-sm text-green-600 mt-1">✅ Datos guardados automáticamente</p>
+              <p className="text-sm text-green-600 mt-1">✅ Tablero compartido - Todos los usuarios ven el mismo contenido</p>
             </div>
             <div className="flex items-center space-x-4">
+              {/* Botón de actualizar */}
+              <button
+                onClick={refreshData}
+                className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-gray-800 hover:bg-white rounded-lg transition-colors"
+                title="Actualizar tablero (ver cambios de otros usuarios)"
+              >
+                <RefreshCw size={16} />
+                <span className="hidden sm:inline text-sm">Actualizar</span>
+              </button>
+              
               {/* Información del usuario actual */}
               <div className="flex items-center space-x-2 bg-white px-3 py-2 rounded-lg shadow-sm">
                 <User className="text-gray-600" size={20} />

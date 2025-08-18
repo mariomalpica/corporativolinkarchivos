@@ -1,66 +1,7 @@
 // Vercel Serverless Function - Backend real para el tablero compartido
 // Este archivo se ejecuta en Vercel como API endpoint
 
-let globalData = {
-  boards: [
-    {
-      id: 1,
-      title: "📋 Por Hacer",
-      color: "bg-blue-500",
-      cards: [
-        { 
-          id: 1, 
-          title: "¡BACKEND REAL FUNCIONANDO!", 
-          description: "Esta API se ejecuta en Vercel - funciona entre todas las computadoras", 
-          backgroundColor: "#e3f2fd",
-          createdBy: "Sistema",
-          createdAt: new Date().toISOString()
-        },
-        { 
-          id: 2, 
-          title: "Prueba crear una tarjeta", 
-          description: "Los cambios se guardan en el servidor de Vercel", 
-          backgroundColor: "#f3e5f5",
-          createdBy: "Sistema",
-          createdAt: new Date().toISOString()
-        }
-      ]
-    },
-    {
-      id: 2,
-      title: "🔄 En Progreso", 
-      color: "bg-yellow-500",
-      cards: [
-        { 
-          id: 3, 
-          title: "Sincronización real", 
-          description: "Backend propio en Vercel - sin APIs externas falsas", 
-          backgroundColor: "#fff3e0",
-          createdBy: "Sistema",
-          createdAt: new Date().toISOString()
-        }
-      ]
-    },
-    {
-      id: 3,
-      title: "✅ Completado",
-      color: "bg-green-500", 
-      cards: [
-        { 
-          id: 4, 
-          title: "Problemas de APIs falsas resueltos", 
-          description: "Backend propio = control total", 
-          backgroundColor: "#e8f5e8",
-          createdBy: "Sistema",
-          createdAt: new Date().toISOString()
-        }
-      ]
-    }
-  ],
-  version: 1,
-  lastUpdated: new Date().toISOString(),
-  lastUpdatedBy: 'Sistema'
-};
+import { readData, writeData, validateData, createBackup } from './utils/dataManager.js';
 
 export default function handler(req, res) {
   // Enable CORS
@@ -75,11 +16,12 @@ export default function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
-      // Retornar datos actuales
-      console.log('GET request - returning data:', globalData.version);
+      // Leer datos del archivo persistente
+      const currentData = readData();
+      console.log('GET request - returning data:', currentData.version);
       res.status(200).json({
         success: true,
-        data: globalData,
+        data: currentData,
         timestamp: new Date().toISOString()
       });
       
@@ -87,26 +29,46 @@ export default function handler(req, res) {
       // Actualizar datos
       const newData = req.body;
       
-      if (newData && newData.boards) {
-        globalData = {
+      if (newData && newData.boards && validateData(newData)) {
+        // Leer datos actuales para obtener la versión
+        const currentData = readData();
+        
+        // Crear backup antes de actualizar (opcional)
+        if (currentData.version > 1) {
+          createBackup(currentData);
+        }
+        
+        // Preparar nuevos datos
+        const updatedData = {
           ...newData,
-          version: (globalData.version || 0) + 1,
+          version: (currentData.version || 0) + 1,
           lastUpdated: new Date().toISOString(),
           lastUpdatedBy: newData.lastUpdatedBy || 'Usuario'
         };
         
-        console.log('POST/PUT request - data updated:', globalData.version, 'by:', globalData.lastUpdatedBy);
+        // Guardar en archivo persistente
+        const saveSuccess = writeData(updatedData);
         
-        res.status(200).json({
-          success: true,
-          message: 'Datos actualizados exitosamente',
-          data: globalData,
-          timestamp: new Date().toISOString()
-        });
+        if (saveSuccess) {
+          console.log('POST/PUT request - data updated and saved:', updatedData.version, 'by:', updatedData.lastUpdatedBy);
+          
+          res.status(200).json({
+            success: true,
+            message: 'Datos actualizados y guardados exitosamente',
+            data: updatedData,
+            timestamp: new Date().toISOString()
+          });
+        } else {
+          res.status(500).json({
+            success: false,
+            message: 'Error guardando datos en el servidor',
+            timestamp: new Date().toISOString()
+          });
+        }
       } else {
         res.status(400).json({
           success: false,
-          message: 'Datos inválidos - se requiere "boards"',
+          message: 'Datos inválidos - se requiere estructura válida con "boards"',
           timestamp: new Date().toISOString()
         });
       }

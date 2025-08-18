@@ -1,20 +1,39 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, X, Edit3, Trash2, Calendar, User, Settings, Mail, Clock, Activity } from 'lucide-react';
 import config from './config';
 
 const TrelloClone = () => {
-  // Estados principales
-  const [currentUser, setCurrentUser] = useState('');
-  const [users, setUsers] = useState(['Ana', 'Carlos', 'María', 'Pedro']);
-  const [activityLog, setActivityLog] = useState([]);
-  const [emailConfig, setEmailConfig] = useState({
+  // Funciones para persistencia de datos
+  const saveToLocalStorage = (key, data) => {
+    try {
+      localStorage.setItem(key, JSON.stringify(data));
+    } catch (error) {
+      console.error('Error guardando en localStorage:', error);
+    }
+  };
+
+  const loadFromLocalStorage = (key, defaultValue) => {
+    try {
+      const item = localStorage.getItem(key);
+      return item ? JSON.parse(item) : defaultValue;
+    } catch (error) {
+      console.error('Error cargando de localStorage:', error);
+      return defaultValue;
+    }
+  };
+
+  // Estados principales con datos persistidos
+  const [currentUser, setCurrentUser] = useState(() => loadFromLocalStorage('trello-currentUser', ''));
+  const [users, setUsers] = useState(() => loadFromLocalStorage('trello-users', ['Ana', 'Carlos', 'María', 'Pedro']));
+  const [activityLog, setActivityLog] = useState(() => loadFromLocalStorage('trello-activityLog', []));
+  const [emailConfig, setEmailConfig] = useState(() => loadFromLocalStorage('trello-emailConfig', {
     email: 'corporativolinkarchivos@gmail.com',
     password: 'M1q2w3e4r5t6y7u8i($'
-  });
+  }));
   const [showSettings, setShowSettings] = useState(false);
   const [showActivityLog, setShowActivityLog] = useState(false);
   
-  const [boards, setBoards] = useState([
+  const [boards, setBoards] = useState(() => loadFromLocalStorage('trello-boards', [
     {
       id: 1,
       title: "Por Hacer",
@@ -40,7 +59,7 @@ const TrelloClone = () => {
         { id: 4, title: "Investigación inicial", description: "Análisis de requisitos", dueDate: "2025-08-15", assignee: "Pedro", backgroundColor: "#d1fae5", reminderEmail: "", reminderDateTime: "" }
       ]
     }
-  ]);
+  ]));
 
   const [draggedCard, setDraggedCard] = useState(null);
   const [draggedOverBoard, setDraggedOverBoard] = useState(null);
@@ -59,7 +78,26 @@ const TrelloClone = () => {
   const [newBoardTitle, setNewBoardTitle] = useState('');
   const [newUserName, setNewUserName] = useState('');
 
-  const dragRef = useRef(null);
+  // useEffect para guardar datos en localStorage cuando cambien
+  useEffect(() => {
+    saveToLocalStorage('trello-boards', boards);
+  }, [boards]);
+
+  useEffect(() => {
+    saveToLocalStorage('trello-users', users);
+  }, [users]);
+
+  useEffect(() => {
+    saveToLocalStorage('trello-activityLog', activityLog);
+  }, [activityLog]);
+
+  useEffect(() => {
+    saveToLocalStorage('trello-currentUser', currentUser);
+  }, [currentUser]);
+
+  useEffect(() => {
+    saveToLocalStorage('trello-emailConfig', emailConfig);
+  }, [emailConfig]);
 
   // Colores predefinidos para las tareas
   const cardColors = [
@@ -129,7 +167,7 @@ const TrelloClone = () => {
   };
 
   // Agregar nueva tarjeta
-  const addCard = (boardId) => {
+  const addCard = async (boardId) => {
     if (newCardTitle.trim()) {
       const newCard = {
         id: Date.now(),
@@ -219,7 +257,7 @@ const TrelloClone = () => {
   };
 
   // Editar tarjeta
-  const updateCard = (boardId, cardId, updatedCard) => {
+  const updateCard = async (boardId, cardId, updatedCard) => {
     setBoards(prevBoards =>
       prevBoards.map(board =>
         board.id === boardId

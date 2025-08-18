@@ -19,6 +19,9 @@ const VercelTrello = ({ currentUser }) => {
   const [showCardForm, setShowCardForm] = useState(null);
   const [newCardTitle, setNewCardTitle] = useState('');
   const [newCardDescription, setNewCardDescription] = useState('');
+  const [showBoardForm, setShowBoardForm] = useState(false);
+  const [newBoardTitle, setNewBoardTitle] = useState('');
+  const [newBoardColor, setNewBoardColor] = useState('bg-blue-500');
   const [draggedCard, setDraggedCard] = useState(null);
   const [draggedOverBoard, setDraggedOverBoard] = useState(null);
 
@@ -340,6 +343,95 @@ const VercelTrello = ({ currentUser }) => {
     setDraggedCard(null);
   };
 
+  // Función para agregar nuevo tablero/columna
+  const addBoard = async () => {
+    if (!newBoardTitle.trim()) return;
+
+    setIsPerformingAction(true);
+    
+    try {
+      const newBoard = {
+        id: Date.now(),
+        title: newBoardTitle.trim(),
+        color: newBoardColor,
+        cards: []
+      };
+
+      const newBoards = [...boards, newBoard];
+
+      // Actualizar estado local inmediatamente
+      setBoards(newBoards);
+      
+      // Guardar en servidor
+      const success = await saveData(newBoards);
+      if (!success) {
+        // Si falla, revertir cambio local
+        setBoards(boards);
+        return;
+      }
+
+      // Registrar en auditoría
+      logCardAction(
+        currentUser,
+        AUDIT_ACTIONS.CREATE_CARD, // Usamos CREATE_CARD como acción genérica
+        `Nuevo tablero: ${newBoardTitle}`,
+        'Sistema',
+        newBoard.id,
+        0, // boardId 0 para tableros
+        { boardTitle: newBoardTitle }
+      );
+
+      // Limpiar formulario
+      setNewBoardTitle('');
+      setShowBoardForm(false);
+    } finally {
+      // Reactivar auto-refresh después de 2 segundos
+      setTimeout(() => setIsPerformingAction(false), 2000);
+    }
+  };
+
+  // Función para eliminar tablero/columna
+  const deleteBoard = async (boardId) => {
+    const boardToDelete = boards.find(b => b.id === boardId);
+    if (!boardToDelete) return;
+
+    // Confirmación para evitar eliminaciones accidentales
+    if (!window.confirm(`¿Estás seguro de que quieres eliminar el tablero "${boardToDelete.title}" y todas sus tarjetas?`)) {
+      return;
+    }
+
+    setIsPerformingAction(true);
+    
+    try {
+      const newBoards = boards.filter(board => board.id !== boardId);
+
+      // Actualizar estado local inmediatamente
+      setBoards(newBoards);
+      
+      // Guardar en servidor
+      const success = await saveData(newBoards);
+      if (!success) {
+        // Si falla, revertir
+        setBoards(boards);
+        return;
+      }
+
+      // Registrar en auditoría
+      logCardAction(
+        currentUser,
+        AUDIT_ACTIONS.DELETE_CARD, // Usamos DELETE_CARD como acción genérica
+        `Tablero eliminado: ${boardToDelete.title}`,
+        'Sistema',
+        boardId,
+        0,
+        { boardTitle: boardToDelete.title, cardCount: boardToDelete.cards.length }
+      );
+    } finally {
+      // Reactivar auto-refresh después de 2 segundos
+      setTimeout(() => setIsPerformingAction(false), 2000);
+    }
+  };
+
   if (!mounted || loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
@@ -489,12 +581,21 @@ const VercelTrello = ({ currentUser }) => {
               onDrop={(e) => handleDrop(e, board.id)}
             >
               {/* Board Header */}
-              <div className={`${board.color} p-4`}>
+              <div className={`${board.color} p-4 group/header`}>
                 <div className="flex justify-between items-center">
                   <h2 className="text-white font-semibold text-lg">{board.title}</h2>
-                  <span className="bg-white bg-opacity-30 text-white px-2 py-1 rounded-full text-sm">
-                    {board.cards.length}
-                  </span>
+                  <div className="flex items-center space-x-2">
+                    <span className="bg-white bg-opacity-30 text-white px-2 py-1 rounded-full text-sm">
+                      {board.cards.length}
+                    </span>
+                    <button
+                      onClick={() => deleteBoard(board.id)}
+                      className="text-white hover:text-red-200 opacity-0 group-hover/header:opacity-100 transition-opacity p-1"
+                      title="Eliminar tablero"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -578,6 +679,69 @@ const VercelTrello = ({ currentUser }) => {
               </div>
             </div>
           ))}
+
+          {/* Add New Board */}
+          {showBoardForm ? (
+            <div className="flex-shrink-0 w-80 bg-white rounded-lg shadow-lg p-4">
+              <h3 className="font-semibold mb-3 text-gray-800">📋 Nuevo Tablero</h3>
+              <input
+                type="text"
+                placeholder="Nombre del tablero"
+                value={newBoardTitle}
+                onChange={(e) => setNewBoardTitle(e.target.value)}
+                className="w-full mb-3 p-2 border border-gray-300 rounded"
+                autoFocus
+              />
+              <div className="mb-3">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Color:</label>
+                <div className="grid grid-cols-4 gap-2">
+                  {[
+                    'bg-blue-500',
+                    'bg-green-500', 
+                    'bg-yellow-500',
+                    'bg-red-500',
+                    'bg-purple-500',
+                    'bg-pink-500',
+                    'bg-indigo-500',
+                    'bg-gray-500'
+                  ].map(color => (
+                    <button
+                      key={color}
+                      onClick={() => setNewBoardColor(color)}
+                      className={`h-8 ${color} rounded ${
+                        newBoardColor === color ? 'ring-2 ring-offset-2 ring-gray-400' : ''
+                      }`}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div className="flex space-x-2">
+                <button
+                  onClick={addBoard}
+                  className="flex-1 bg-blue-500 text-white py-2 px-3 rounded hover:bg-blue-600"
+                  disabled={!newBoardTitle.trim()}
+                >
+                  ➕ Crear Tablero
+                </button>
+                <button
+                  onClick={() => setShowBoardForm(false)}
+                  className="px-3 py-2 text-gray-500 hover:text-gray-700"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex-shrink-0 w-80">
+              <button
+                onClick={() => setShowBoardForm(true)}
+                className="w-full h-32 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-gray-400 hover:text-gray-600 flex flex-col items-center justify-center space-y-2 bg-white hover:bg-gray-50"
+              >
+                <Plus size={32} />
+                <span className="font-medium">Agregar Tablero</span>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Stats */}

@@ -126,26 +126,6 @@ function App() {
           </div>
           
           <div className="flex items-center space-x-2">
-            {/* Botón de diagnóstico de API */}
-            <button
-              onClick={() => setShowTestAPI(true)}
-              className="flex items-center space-x-1 px-3 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded"
-              title="Diagnosticar API"
-            >
-              <Activity size={16} />
-              <span className="hidden sm:inline">🔧 Test API</span>
-            </button>
-
-            {/* Botón de auditoría */}
-            <button
-              onClick={() => setShowAuditPanel(true)}
-              className="flex items-center space-x-1 px-3 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded"
-              title="Ver auditoría"
-            >
-              <Activity size={16} />
-              <span className="hidden sm:inline">Auditoría</span>
-            </button>
-
             {/* Botón de administración (solo para admin) */}
             {currentUser.role === 'admin' && (
               <button
@@ -172,7 +152,11 @@ function App() {
       </div>
 
       {/* Componente principal */}
-      <VercelTrello currentUser={currentUser} />
+      <VercelTrello 
+        currentUser={currentUser} 
+        onShowTestAPI={() => setShowTestAPI(true)}
+        onShowAuditPanel={() => setShowAuditPanel(true)}
+      />
 
       {/* Modales */}
       {showAuthModal && (

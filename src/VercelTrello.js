@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, X, Trash2, RefreshCw, Info, Wifi, WifiOff, Server } from 'lucide-react';
 import { logCardAction, AUDIT_ACTIONS } from './utils/audit';
 
-const VercelTrello = ({ currentUser }) => {
+const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel }) => {
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [boards, setBoards] = useState([]);
@@ -749,6 +749,30 @@ const VercelTrello = ({ currentUser }) => {
                 <span>Actualizar</span>
               </button>
               
+              {/* Botón de diagnóstico de API */}
+              {onShowTestAPI && (
+                <button
+                  onClick={onShowTestAPI}
+                  className="flex items-center space-x-1 px-3 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded"
+                  title="Diagnosticar API"
+                >
+                  <RefreshCw size={16} />
+                  <span className="hidden sm:inline">🔧 Test API</span>
+                </button>
+              )}
+
+              {/* Botón de auditoría */}
+              {onShowAuditPanel && (
+                <button
+                  onClick={onShowAuditPanel}
+                  className="flex items-center space-x-1 px-3 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded"
+                  title="Ver auditoría"
+                >
+                  <RefreshCw size={16} />
+                  <span className="hidden sm:inline">Auditoría</span>
+                </button>
+              )}
+
               {/* Info del usuario */}
               <div className="bg-white px-3 py-2 rounded-lg shadow-sm border">
                 <span className="text-sm font-medium text-gray-700">

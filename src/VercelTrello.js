@@ -86,13 +86,25 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
         lastUpdatedBy: currentUser?.username || 'Usuario'
       };
       
-      console.log('💾 Guardando datos en Vercel backend...');
+      console.log('🔥 CRISIS - saveData INICIADA:', {
+        API_URL,
+        boardsCount: newBoards.length,
+        totalCards: newBoards.reduce((sum, b) => sum + b.cards.length, 0),
+        version: dataToSave.version
+      });
+      
       const response = await fetch(API_URL, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(dataToSave)
+      });
+      
+      console.log('🔥 CRISIS - Respuesta del servidor:', {
+        status: response.status,
+        ok: response.ok,
+        statusText: response.statusText
       });
       
       if (response.ok) {
@@ -177,14 +189,21 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
 
   // Función para agregar nueva tarjeta
   const addCard = async (boardId) => {
-    console.log('🚨 EMERGENCIA - Intentando agregar tarjeta:', { boardId, title: newCardTitle.trim() });
+    console.log('🔥 CRISIS - addCard INICIADA:', { 
+      boardId, 
+      title: newCardTitle.trim(),
+      currentBoards: boards.length,
+      isPerformingAction,
+      currentUser: currentUser?.username 
+    });
     
     if (!newCardTitle.trim()) {
-      console.log('❌ EMERGENCIA - Título vacío, abortando');
+      console.log('❌ CRISIS - Título vacío, ABORTANDO');
+      alert('DEBUGGING: Título está vacío');
       return;
     }
 
-    console.log('🚨 EMERGENCIA - Configurando isPerformingAction a true');
+    console.log('🔥 CRISIS - Título válido, continuando...');
     setIsPerformingAction(true);
     
     try {
@@ -197,19 +216,32 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
         createdAt: new Date().toISOString()
       };
 
+      console.log('🔥 CRISIS - Nueva tarjeta creada:', newCard);
+
       const newBoards = boards.map(board =>
         board.id === boardId
           ? { ...board, cards: [...board.cards, newCard] }
           : board
       );
 
+      console.log('🔥 CRISIS - Nuevos boards calculados:', { 
+        originalBoardsCount: boards.length,
+        newBoardsCount: newBoards.length,
+        targetBoardCards: newBoards.find(b => b.id === boardId)?.cards.length
+      });
+
       // Actualizar estado local inmediatamente para UX
+      console.log('🔥 CRISIS - Actualizando estado local...');
       setBoards(newBoards);
       
       // Guardar en servidor
+      console.log('🔥 CRISIS - Guardando en servidor...');
       const success = await saveData(newBoards);
+      console.log('🔥 CRISIS - Resultado saveData:', success);
+      
       if (!success) {
-        // Si falla, revertir cambio local
+        console.log('❌ CRISIS - FALLO AL GUARDAR, revirtiendo...');
+        alert('DEBUGGING: Error al guardar en servidor');
         setBoards(boards);
         return;
       }
@@ -639,7 +671,14 @@ const VercelTrello = ({ currentUser, onShowTestAPI, onShowAuditPanel, showContro
                       <div className="flex space-x-2">
                         <button
                           onClick={(e) => {
-                            console.log('🚨 EMERGENCIA - Click en botón Agregar detectado', { boardId: board.id, title: newCardTitle });
+                            console.log('🔥 CRISIS - CLICK DETECTADO EN BOTÓN AGREGAR!', { 
+                              boardId: board.id, 
+                              title: newCardTitle,
+                              titleLength: newCardTitle?.length,
+                              disabled: !newCardTitle.trim(),
+                              event: e.type
+                            });
+                            alert(`DEBUGGING: Click detectado! Título: "${newCardTitle}" Board: ${board.id}`);
                             e.preventDefault();
                             e.stopPropagation();
                             addCard(board.id);

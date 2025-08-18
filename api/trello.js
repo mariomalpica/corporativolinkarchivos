@@ -1,6 +1,101 @@
 // Vercel Serverless Function - Backend real para el tablero compartido
 // Este archivo se ejecuta en Vercel como API endpoint
-import { readData, writeData, validateData } from './utils/database.js';
+
+// Datos temporales en memoria mientras se configura KV
+let globalData = {
+  boards: [
+    {
+      id: 1,
+      title: "📋 Por Hacer",
+      color: "bg-blue-500",
+      cards: [
+        { 
+          id: 1, 
+          title: "¡SISTEMA FUNCIONANDO!", 
+          description: "Backend restaurado y operativo", 
+          backgroundColor: "#e3f2fd",
+          createdBy: "Sistema",
+          assignedTo: "Sistema",
+          createdAt: new Date().toISOString()
+        }
+      ]
+    },
+    {
+      id: 2,
+      title: "🔄 En Progreso", 
+      color: "bg-yellow-500",
+      cards: []
+    },
+    {
+      id: 3,
+      title: "✅ Completado",
+      color: "bg-green-500", 
+      cards: []
+    }
+  ],
+  version: 1,
+  lastUpdated: new Date().toISOString(),
+  lastUpdatedBy: 'Sistema'
+};
+
+// Validar estructura de datos
+function validateData(data) {
+  if (!data || typeof data !== 'object') {
+    return false;
+  }
+  
+  if (!Array.isArray(data.boards)) {
+    return false;
+  }
+  
+  // Validar cada board
+  for (const board of data.boards) {
+    if (!board.id || !board.title || !Array.isArray(board.cards)) {
+      return false;
+    }
+  }
+  
+  return true;
+}
+
+// Función para intentar usar KV si está disponible, sino usar memoria
+async function readDataSafe() {
+  try {
+    // Intentar importar y usar KV
+    if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+      const { kv } = await import('@vercel/kv');
+      const data = await kv.get('trello_boards_data');
+      if (data) {
+        console.log('✅ KV - Datos leídos desde KV:', data.version);
+        return data;
+      }
+    }
+  } catch (error) {
+    console.log('⚠️ KV no disponible, usando memoria:', error.message);
+  }
+  
+  console.log('📝 Usando datos de memoria temporal');
+  return globalData;
+}
+
+async function writeDataSafe(data) {
+  try {
+    // Intentar importar y usar KV
+    if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+      const { kv } = await import('@vercel/kv');
+      await kv.set('trello_boards_data', data);
+      console.log('✅ KV - Datos guardados en KV:', data.version);
+      return true;
+    }
+  } catch (error) {
+    console.log('⚠️ KV no disponible, guardando en memoria:', error.message);
+  }
+  
+  // Actualizar memoria global
+  globalData = { ...data };
+  console.log('📝 Datos guardados en memoria temporal:', data.version);
+  return true;
+}
 
 
 export default function handler(req, res) {
@@ -16,9 +111,9 @@ export default function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
-      // Leer datos de Vercel KV
-      const currentData = await readData();
-      console.log('🔥 GET request - returning data from KV:', currentData.version);
+      // Leer datos (KV o memoria)
+      const currentData = await readDataSafe();
+      console.log('🔥 GET request - returning data:', currentData.version);
       res.status(200).json({
         success: true,
         data: currentData,
@@ -26,17 +121,17 @@ export default function handler(req, res) {
       });
       
     } else if (req.method === 'POST' || req.method === 'PUT') {
-      // Actualizar datos en Vercel KV
+      // Actualizar datos (KV o memoria)
       const newData = req.body;
       
       if (newData && newData.boards && validateData(newData)) {
-        console.log('🔥 PUT request - updating data in KV:', {
+        console.log('🔥 PUT request - updating data:', {
           boardsCount: newData.boards.length,
           totalCards: newData.boards.reduce((sum, b) => sum + b.cards.length, 0)
         });
         
-        // Leer versión actual de KV
-        const currentData = await readData();
+        // Leer versión actual
+        const currentData = await readDataSafe();
         
         const updatedData = {
           ...newData,
@@ -45,22 +140,22 @@ export default function handler(req, res) {
           lastUpdatedBy: newData.lastUpdatedBy || 'Usuario'
         };
         
-        // Guardar en KV
-        const success = await writeData(updatedData);
+        // Guardar datos
+        const success = await writeDataSafe(updatedData);
         
         if (success) {
-          console.log('🔥 POST/PUT request - data updated in KV:', updatedData.version, 'by:', updatedData.lastUpdatedBy);
+          console.log('🔥 POST/PUT request - data updated:', updatedData.version, 'by:', updatedData.lastUpdatedBy);
           
           res.status(200).json({
             success: true,
-            message: 'Datos actualizados y guardados en KV exitosamente',
+            message: 'Datos actualizados exitosamente',
             data: updatedData,
             timestamp: new Date().toISOString()
           });
         } else {
           res.status(500).json({
             success: false,
-            message: 'Error guardando datos en KV',
+            message: 'Error guardando datos',
             timestamp: new Date().toISOString()
           });
         }

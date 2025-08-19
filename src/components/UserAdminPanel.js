@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { 
   User, 
   Edit3, 
@@ -27,6 +28,7 @@ import {
 import { logUserAction, AUDIT_ACTIONS } from '../utils/audit';
 
 const UserAdminPanel = ({ currentUser, onClose }) => {
+  const { t } = useTranslation();
   const [users, setUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState(null);
@@ -73,17 +75,17 @@ const UserAdminPanel = ({ currentUser, onClose }) => {
   const handleCreateUser = () => {
     // Validaciones
     if (!validateUsername(newUser.username)) {
-      showMessage('error', 'Usuario inválido (mínimo 3 caracteres, solo letras, números y _)');
+      showMessage('error', t('invalid_username'));
       return;
     }
     
     if (!validateEmail(newUser.email)) {
-      showMessage('error', 'Email inválido');
+      showMessage('error', t('invalid_email'));
       return;
     }
     
     if (!validatePassword(newUser.password)) {
-      showMessage('error', 'Contraseña debe tener al menos 6 caracteres');
+      showMessage('error', t('password_min_6_chars'));
       return;
     }
     
@@ -93,7 +95,7 @@ const UserAdminPanel = ({ currentUser, onClose }) => {
     );
     
     if (existingUser) {
-      showMessage('error', 'Usuario o email ya existe');
+      showMessage('error', t('user_email_exists'));
       return;
     }
     
@@ -119,7 +121,7 @@ const UserAdminPanel = ({ currentUser, onClose }) => {
       active: newUser.active
     });
     
-    showMessage('success', `Usuario "${newUser.username}" creado exitosamente`);
+    showMessage('success', t('user_created_successfully', { username: newUser.username }));
     
     // Limpiar formulario
     setNewUser({
@@ -143,7 +145,7 @@ const UserAdminPanel = ({ currentUser, onClose }) => {
     const user = users.find(u => u.id === userId);
     logUserAction(currentUser, AUDIT_ACTIONS.EDIT_USER, user.username, userId, updates);
     
-    showMessage('success', `Usuario actualizado exitosamente`);
+    showMessage('success', t('user_updated_successfully'));
     setSelectedUser(null);
   };
 
@@ -151,28 +153,28 @@ const UserAdminPanel = ({ currentUser, onClose }) => {
     const user = users.find(u => u.id === userId);
     
     if (user.id === currentUser.id) {
-      showMessage('error', 'No puedes eliminar tu propia cuenta');
+      showMessage('error', t('cannot_delete_own_account'));
       return;
     }
     
-    if (window.confirm(`¿Estás seguro de eliminar al usuario "${user.username}"?`)) {
+    if (window.confirm(t('confirm_delete_user', { username: user.username }))) {
       const updatedUsers = users.filter(u => u.id !== userId);
       saveUsers(updatedUsers);
       setUsers(updatedUsers);
       
       logUserAction(currentUser, AUDIT_ACTIONS.DELETE_USER, user.username, userId);
-      showMessage('success', `Usuario "${user.username}" eliminado`);
+      showMessage('success', t('user_deleted', { username: user.username }));
     }
   };
 
   const handleChangePassword = (userId) => {
     if (!validatePassword(passwordForm.newPassword)) {
-      showMessage('error', 'Contraseña debe tener al menos 6 caracteres');
+      showMessage('error', t('password_min_6_chars'));
       return;
     }
     
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      showMessage('error', 'Las contraseñas no coinciden');
+      showMessage('error', t('passwords_dont_match'));
       return;
     }
     
@@ -181,7 +183,7 @@ const UserAdminPanel = ({ currentUser, onClose }) => {
     if (result.success) {
       const user = users.find(u => u.id === userId);
       logUserAction(currentUser, AUDIT_ACTIONS.CHANGE_PASSWORD, user.username, userId);
-      showMessage('success', 'Contraseña actualizada exitosamente');
+      showMessage('success', t('password_updated_successfully'));
       setShowPasswordForm(null);
       setPasswordForm({ newPassword: '', confirmPassword: '' });
       loadUserData(); // Recargar datos
@@ -203,13 +205,13 @@ const UserAdminPanel = ({ currentUser, onClose }) => {
         <div className="bg-white rounded-lg p-6 max-w-md w-full">
           <div className="text-center">
             <AlertCircle className="mx-auto h-12 w-12 text-red-500 mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Acceso Denegado</h3>
-            <p className="text-gray-600 mb-4">No tienes permisos para acceder al panel de administración.</p>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('access_denied')}</h3>
+            <p className="text-gray-600 mb-4">{t('no_admin_permissions')}</p>
             <button
               onClick={onClose}
               className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
             >
-              Cerrar
+              {t('close')}
             </button>
           </div>
         </div>
@@ -223,8 +225,8 @@ const UserAdminPanel = ({ currentUser, onClose }) => {
         {/* Header */}
         <div className="p-6 border-b flex justify-between items-center">
           <div>
-            <h2 className="text-2xl font-bold text-gray-800">Panel de Administración de Usuarios</h2>
-            <p className="text-gray-600">Gestiona usuarios del sistema</p>
+            <h2 className="text-2xl font-bold text-gray-800">{t('user_admin_panel')}</h2>
+            <p className="text-gray-600">{t('manage_system_users')}</p>
           </div>
           <button
             onClick={onClose}
@@ -254,14 +256,14 @@ const UserAdminPanel = ({ currentUser, onClose }) => {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
                 <input
                   type="text"
-                  placeholder="Buscar usuarios..."
+                  placeholder={t('search_users')}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div className="text-sm text-gray-600">
-                {filteredUsers.length} usuario{filteredUsers.length !== 1 ? 's' : ''} encontrado{filteredUsers.length !== 1 ? 's' : ''}
+                {t('users_found', { count: filteredUsers.length })}
               </div>
             </div>
             <button
@@ -269,7 +271,7 @@ const UserAdminPanel = ({ currentUser, onClose }) => {
               className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 flex items-center space-x-2"
             >
               <Plus size={16} />
-              <span>Nuevo Usuario</span>
+              <span>{t('new_user')}</span>
             </button>
           </div>
         </div>
@@ -279,12 +281,12 @@ const UserAdminPanel = ({ currentUser, onClose }) => {
           <table className="w-full">
             <thead className="bg-gray-50 sticky top-0">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usuario</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rol</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Último Login</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('user')}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('email')}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('role')}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('status')}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('last_login')}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('actions')}</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -318,31 +320,31 @@ const UserAdminPanel = ({ currentUser, onClose }) => {
                         ? 'bg-green-100 text-green-800' 
                         : 'bg-red-100 text-red-800'
                     }`}>
-                      {user.active ? 'Activo' : 'Inactivo'}
+                      {user.active ? t('active') : t('inactive')}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {user.lastLogin ? new Date(user.lastLogin).toLocaleDateString() : 'Nunca'}
+                    {user.lastLogin ? new Date(user.lastLogin).toLocaleDateString() : t('never')}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
                     <button
                       onClick={() => setSelectedUser(user)}
                       className="text-blue-600 hover:text-blue-800"
-                      title="Editar usuario"
+                      title={t('edit_user')}
                     >
                       <Edit3 size={16} />
                     </button>
                     <button
                       onClick={() => setShowPasswordForm(user.id)}
                       className="text-green-600 hover:text-green-800"
-                      title="Cambiar contraseña"
+                      title={t('change_password')}
                     >
                       <Key size={16} />
                     </button>
                     <button
                       onClick={() => handleUpdateUser(user.id, { active: !user.active })}
                       className={user.active ? "text-orange-600 hover:text-orange-800" : "text-green-600 hover:text-green-800"}
-                      title={user.active ? "Desactivar usuario" : "Activar usuario"}
+                      title={user.active ? t('deactivate_user') : t('activate_user')}
                     >
                       {user.active ? <ShieldOff size={16} /> : <Shield size={16} />}
                     </button>
@@ -350,7 +352,7 @@ const UserAdminPanel = ({ currentUser, onClose }) => {
                       <button
                         onClick={() => handleDeleteUser(user.id)}
                         className="text-red-600 hover:text-red-800"
-                        title="Eliminar usuario"
+                        title={t('delete_user')}
                       >
                         <Trash2 size={16} />
                       </button>
@@ -364,9 +366,9 @@ const UserAdminPanel = ({ currentUser, onClose }) => {
           {filteredUsers.length === 0 && (
             <div className="text-center py-12">
               <User className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No se encontraron usuarios</h3>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">{t('no_users_found')}</h3>
               <p className="text-gray-500">
-                {searchTerm ? 'Intenta con otro término de búsqueda' : 'No hay usuarios registrados'}
+                {searchTerm ? t('try_different_search') : t('no_registered_users')}
               </p>
             </div>
           )}
@@ -376,18 +378,18 @@ const UserAdminPanel = ({ currentUser, onClose }) => {
         {showAddForm && (
           <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-lg p-6 w-full max-w-md">
-              <h3 className="text-lg font-semibold mb-4">Crear Nuevo Usuario</h3>
+              <h3 className="text-lg font-semibold mb-4">{t('create_new_user')}</h3>
               <div className="space-y-4">
                 <input
                   type="text"
-                  placeholder="Nombre de usuario"
+                  placeholder={t('username')}
                   value={newUser.username}
                   onChange={(e) => setNewUser({...newUser, username: e.target.value})}
                   className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <input
                   type="email"
-                  placeholder="Email"
+                  placeholder={t('email')}
                   value={newUser.email}
                   onChange={(e) => setNewUser({...newUser, email: e.target.value})}
                   className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -395,7 +397,7 @@ const UserAdminPanel = ({ currentUser, onClose }) => {
                 <div className="relative">
                   <input
                     type={showPasswords.newUser ? 'text' : 'password'}
-                    placeholder="Contraseña"
+                    placeholder={t('password')}
                     value={newUser.password}
                     onChange={(e) => setNewUser({...newUser, password: e.target.value})}
                     className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10"
@@ -413,8 +415,8 @@ const UserAdminPanel = ({ currentUser, onClose }) => {
                   onChange={(e) => setNewUser({...newUser, role: e.target.value})}
                   className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="user">Usuario</option>
-                  <option value="admin">Administrador</option>
+                  <option value="user">{t('user')}</option>
+                  <option value="admin">{t('admin')}</option>
                 </select>
                 <label className="flex items-center space-x-2">
                   <input
@@ -423,7 +425,7 @@ const UserAdminPanel = ({ currentUser, onClose }) => {
                     onChange={(e) => setNewUser({...newUser, active: e.target.checked})}
                     className="rounded"
                   />
-                  <span>Usuario activo</span>
+                  <span>{t('active_user')}</span>
                 </label>
               </div>
               <div className="flex space-x-2 mt-6">
@@ -431,13 +433,13 @@ const UserAdminPanel = ({ currentUser, onClose }) => {
                   onClick={handleCreateUser}
                   className="flex-1 bg-blue-500 text-white py-2 rounded hover:bg-blue-600"
                 >
-                  Crear Usuario
+                  {t('create_user')}
                 </button>
                 <button
                   onClick={() => setShowAddForm(false)}
                   className="flex-1 bg-gray-300 text-gray-700 py-2 rounded hover:bg-gray-400"
                 >
-                  Cancelar
+                  {t('cancel')}
                 </button>
               </div>
             </div>
@@ -448,29 +450,29 @@ const UserAdminPanel = ({ currentUser, onClose }) => {
         {selectedUser && (
           <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-lg p-6 w-full max-w-md">
-              <h3 className="text-lg font-semibold mb-4">Editar Usuario: {selectedUser.username}</h3>
+              <h3 className="text-lg font-semibold mb-4">{t('edit_user_title', { username: selectedUser.username })}</h3>
               <div className="space-y-4">
                 <input
                   type="text"
                   value={selectedUser.username}
                   onChange={(e) => setSelectedUser({...selectedUser, username: e.target.value})}
                   className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Nombre de usuario"
+                  placeholder={t('username')}
                 />
                 <input
                   type="email"
                   value={selectedUser.email}
                   onChange={(e) => setSelectedUser({...selectedUser, email: e.target.value})}
                   className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Email"
+                  placeholder={t('email')}
                 />
                 <select
                   value={selectedUser.role}
                   onChange={(e) => setSelectedUser({...selectedUser, role: e.target.value})}
                   className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="user">Usuario</option>
-                  <option value="admin">Administrador</option>
+                  <option value="user">{t('user')}</option>
+                  <option value="admin">{t('admin')}</option>
                 </select>
                 <label className="flex items-center space-x-2">
                   <input
@@ -479,7 +481,7 @@ const UserAdminPanel = ({ currentUser, onClose }) => {
                     onChange={(e) => setSelectedUser({...selectedUser, active: e.target.checked})}
                     className="rounded"
                   />
-                  <span>Usuario activo</span>
+                  <span>{t('active_user')}</span>
                 </label>
               </div>
               <div className="flex space-x-2 mt-6">
@@ -487,13 +489,13 @@ const UserAdminPanel = ({ currentUser, onClose }) => {
                   onClick={() => handleUpdateUser(selectedUser.id, selectedUser)}
                   className="flex-1 bg-blue-500 text-white py-2 rounded hover:bg-blue-600"
                 >
-                  Guardar Cambios
+                  {t('save_changes')}
                 </button>
                 <button
                   onClick={() => setSelectedUser(null)}
                   className="flex-1 bg-gray-300 text-gray-700 py-2 rounded hover:bg-gray-400"
                 >
-                  Cancelar
+                  {t('cancel')}
                 </button>
               </div>
             </div>
@@ -505,13 +507,13 @@ const UserAdminPanel = ({ currentUser, onClose }) => {
           <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-lg p-6 w-full max-w-md">
               <h3 className="text-lg font-semibold mb-4">
-                Cambiar Contraseña: {users.find(u => u.id === showPasswordForm)?.username}
+                {t('change_password_for', { username: users.find(u => u.id === showPasswordForm)?.username })}
               </h3>
               <div className="space-y-4">
                 <div className="relative">
                   <input
                     type={showPasswords.changePass1 ? 'text' : 'password'}
-                    placeholder="Nueva contraseña"
+                    placeholder={t('new_password')}
                     value={passwordForm.newPassword}
                     onChange={(e) => setPasswordForm({...passwordForm, newPassword: e.target.value})}
                     className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10"
@@ -527,7 +529,7 @@ const UserAdminPanel = ({ currentUser, onClose }) => {
                 <div className="relative">
                   <input
                     type={showPasswords.changePass2 ? 'text' : 'password'}
-                    placeholder="Confirmar contraseña"
+                    placeholder={t('confirm_password')}
                     value={passwordForm.confirmPassword}
                     onChange={(e) => setPasswordForm({...passwordForm, confirmPassword: e.target.value})}
                     className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10"
@@ -546,7 +548,7 @@ const UserAdminPanel = ({ currentUser, onClose }) => {
                   onClick={() => handleChangePassword(showPasswordForm)}
                   className="flex-1 bg-blue-500 text-white py-2 rounded hover:bg-blue-600"
                 >
-                  Cambiar Contraseña
+                  {t('change_password')}
                 </button>
                 <button
                   onClick={() => {
@@ -555,7 +557,7 @@ const UserAdminPanel = ({ currentUser, onClose }) => {
                   }}
                   className="flex-1 bg-gray-300 text-gray-700 py-2 rounded hover:bg-gray-400"
                 >
-                  Cancelar
+                  {t('cancel')}
                 </button>
               </div>
             </div>
